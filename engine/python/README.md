@@ -50,14 +50,20 @@ The engine listens on `0.0.0.0:5005`. Test packets are sent to `127.0.0.1:5005` 
 
 ```json
 {
+  "version": 1,
   "type": "gamepad_update",
-  "left_x": 0.5
+  "left_x": 0.5,
+  "throttle": 0.0,
+  "brake": 0.0,
+  "gear_up": false,
+  "gear_down": false,
+  "handbrake": false
 }
 ```
 
-`left_x` is clamped between `-1.0` and `1.0`.
+`left_x` is clamped between `-1.0` and `1.0`. `throttle` and `brake` are clamped between `0.0` and `1.0`.
 
-If the engine does not receive a valid packet for 500 milliseconds, it returns the left joystick to center.
+If the engine does not receive a valid packet for 500 milliseconds, it centers steering, releases both triggers, and releases all buttons.
 
 Stop either script with `Ctrl+C`.
 

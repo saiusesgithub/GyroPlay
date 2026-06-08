@@ -2,7 +2,7 @@
 
 This is the Android proof-of-concept mobile app for GyroPlay.
 
-It sends steering values to the Python controller engine over UDP. The app uses Dart's built-in `RawDatagramSocket` for networking and `sensors_plus` for phone-tilt steering.
+It sends racing controller state to the Python controller engine over UDP. The app uses Dart's built-in `RawDatagramSocket` for networking and `sensors_plus` for phone-tilt steering.
 
 ## Setup
 
@@ -37,28 +37,54 @@ flutter run
 1. Put the phone and PC on the same network.
 2. Enter the PC IPv4 address in the app.
 3. Tap `Connect`.
-4. Hold the phone in landscape orientation like a steering wheel.
-5. Tap `Calibrate`.
-6. Rotate the phone left and right like a steering wheel.
-7. Watch the Python engine console and `joy.cpl` for changing `left_x` values.
-
-The app calibrates the current roll angle as neutral. Steering is based on the current roll angle minus that calibrated neutral angle.
+4. The controller screen runs in landscape orientation.
+5. Hold the phone like a steering wheel.
+6. Tap `Calibrate`.
+7. Rotate the phone left and right like a steering wheel.
+8. Watch the Python engine console and `joy.cpl` for changing controller state.
 
 About 45 degrees of left/right roll maps to full steering. A 3 degree center dead zone and smoothing are applied to reduce shake. Visible angle updates are capped so the number is readable.
 
 If steering moves in the wrong direction for your device orientation, enable `Invert steering`.
 
+## Pedals And Buttons
+
+The app has two large touch pedals:
+
+- `Throttle`
+- `Brake`
+
+Touch or drag higher on a pedal to increase its value from `0.0` to `1.0`. Releasing the pedal resets it to `0.0`.
+
+The app also has press-and-hold buttons:
+
+- `Gear up`
+- `Gear down`
+- `Handbrake`
+
+Releasing or canceling a touch releases the button state.
+
 ## Manual Slider Mode
 
-Use the `Tilt steering` / `Manual slider` toggle to switch modes.
+Use the `Tilt` / `Manual` toggle to switch modes.
 
-Manual slider mode keeps the previous debug slider available. Moving the slider sends the same UDP packet format:
+Manual mode keeps the debug steering slider available. Pedals and buttons continue to work in both modes.
+
+## UDP Packet
+
+The app sends the complete controller state about 60 times per second while connected:
 
 ```json
 {
+  "version": 1,
   "type": "gamepad_update",
-  "left_x": 0.5
+  "left_x": 0.0,
+  "throttle": 0.0,
+  "brake": 0.0,
+  "gear_up": false,
+  "gear_down": false,
+  "handbrake": false
 }
 ```
 
-Tap `Disconnect` to send `left_x = 0.0`, close the UDP socket, and reset steering to center.
+Tap `Disconnect` to send a neutral state, close the UDP socket, and reset all controls.

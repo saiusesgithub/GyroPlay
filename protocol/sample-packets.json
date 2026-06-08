@@ -1,0 +1,54 @@
+[
+  {
+    "name": "neutral",
+    "packet": {
+      "version": 1,
+      "type": "gamepad_update",
+      "left_x": 0.0,
+      "throttle": 0.0,
+      "brake": 0.0,
+      "gear_up": false,
+      "gear_down": false,
+      "handbrake": false
+    }
+  },
+  {
+    "name": "accelerating right",
+    "packet": {
+      "version": 1,
+      "type": "gamepad_update",
+      "left_x": 0.45,
+      "throttle": 0.8,
+      "brake": 0.0,
+      "gear_up": false,
+      "gear_down": false,
+      "handbrake": false
+    }
+  },
+  {
+    "name": "braking left with handbrake",
+    "packet": {
+      "version": 1,
+      "type": "gamepad_update",
+      "left_x": -0.65,
+      "throttle": 0.0,
+      "brake": 0.7,
+      "gear_up": false,
+      "gear_down": false,
+      "handbrake": true
+    }
+  },
+  {
+    "name": "gear up pressed",
+    "packet": {
+      "version": 1,
+      "type": "gamepad_update",
+      "left_x": 0.0,
+      "throttle": 1.0,
+      "brake": 0.0,
+      "gear_up": true,
+      "gear_down": false,
+      "handbrake": false
+    }
+  }
+]
