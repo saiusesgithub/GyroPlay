@@ -1,37 +1,50 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android
+android/.gradle/
+android/local.properties
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# iOS / macOS
+ios/Pods/
+ios/.symlinks/
+macos/Pods/
+macos/.symlinks/
+
+# Windows / Linux generated files
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
 
-# Flutter
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-build/
-.pub-cache/
-
-# C# / Visual Studio / WinUI
+# Visual Studio / C#
 .vs/
 bin/
 obj/
 *.user
 *.suo
 
-# Editors
+# IDEs
 .idea/
 .vscode/
 
-# Environment files
-.env
-.env.*
-
-# Logs
-*.log
-
-# Operating system
+# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Logs
+*.log
