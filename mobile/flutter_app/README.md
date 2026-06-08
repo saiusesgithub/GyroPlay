@@ -1,8 +1,8 @@
 # GyroPlay Flutter App
 
-This is the first Android proof-of-concept mobile app for GyroPlay.
+This is the Android proof-of-concept mobile app for GyroPlay.
 
-It sends steering values to the Python controller engine over UDP. The app uses Dart's built-in `RawDatagramSocket` and sends JSON packets to UDP port `5005`.
+It sends steering values to the Python controller engine over UDP. The app uses Dart's built-in `RawDatagramSocket` for networking and `sensors_plus` for phone-tilt steering.
 
 ## Setup
 
@@ -32,15 +32,27 @@ cd mobile\flutter_app
 flutter run
 ```
 
-## Test
+## Test Tilt Steering
 
-1. Find the PC's IPv4 address on the same network as the phone or emulator.
-2. Enter that IPv4 address in the app.
+1. Put the phone and PC on the same network.
+2. Enter the PC IPv4 address in the app.
 3. Tap `Connect`.
-4. Move the steering slider.
-5. Watch the Python engine console for received `left_x` values.
+4. Hold the phone in landscape orientation like a steering wheel.
+5. Tap `Calibrate`.
+6. Rotate the phone left and right like a steering wheel.
+7. Watch the Python engine console and `joy.cpl` for changing `left_x` values.
 
-The app sends packets in this format:
+The app calibrates the current roll angle as neutral. Steering is based on the current roll angle minus that calibrated neutral angle.
+
+About 45 degrees of left/right roll maps to full steering. A 3 degree center dead zone and smoothing are applied to reduce shake. Visible angle updates are capped so the number is readable.
+
+If steering moves in the wrong direction for your device orientation, enable `Invert steering`.
+
+## Manual Slider Mode
+
+Use the `Tilt steering` / `Manual slider` toggle to switch modes.
+
+Manual slider mode keeps the previous debug slider available. Moving the slider sends the same UDP packet format:
 
 ```json
 {
@@ -49,4 +61,4 @@ The app sends packets in this format:
 }
 ```
 
-Tap `Disconnect` to send `left_x = 0.0`, close the UDP socket, and reset the slider to center.
+Tap `Disconnect` to send `left_x = 0.0`, close the UDP socket, and reset steering to center.
