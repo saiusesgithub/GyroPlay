@@ -11,8 +11,14 @@ STEPS_PER_MOVE = 100
 
 def send_left_x(udp_socket, left_x):
     packet = {
+        "version": 1,
         "type": "gamepad_update",
         "left_x": left_x,
+        "throttle": 0.0,
+        "brake": 0.0,
+        "gear_up": False,
+        "gear_down": False,
+        "handbrake": False,
     }
     udp_socket.sendto(json.dumps(packet).encode("utf-8"), (HOST, PORT))
     print(f"Sent steering value: {left_x:.3f}")

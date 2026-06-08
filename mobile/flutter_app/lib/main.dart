@@ -4,9 +4,15 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
   runApp(const GyroPlayApp());
 }
 
@@ -48,24 +54,29 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   static const double _deadZoneDegrees = 3.0;
   static const double _smoothingAlpha = 0.12;
   static const double _minimumSteeringChange = 0.01;
-  static const Duration _networkInterval = Duration(milliseconds: 16);
+  static const Duration _sendInterval = Duration(milliseconds: 16);
   static const Duration _uiTiltInterval = Duration(milliseconds: 40);
 
   final TextEditingController _ipController = TextEditingController();
-  final Stopwatch _networkStopwatch = Stopwatch()..start();
   final Stopwatch _uiTiltStopwatch = Stopwatch()..start();
 
   RawDatagramSocket? _socket;
   InternetAddress? _pcAddress;
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  Timer? _sendTimer;
 
   SteeringMode _steeringMode = SteeringMode.tilt;
   double _manualLeftX = 0.0;
   double _steeringValue = 0.0;
   double _rawRollDegrees = 0.0;
   double _currentTiltDegrees = 0.0;
+  double _throttle = 0.0;
+  double _brake = 0.0;
   double? _calibratedRollDegrees;
   bool _invertSteering = false;
+  bool _gearUp = false;
+  bool _gearDown = false;
+  bool _handbrake = false;
   bool _isConnecting = false;
   bool _sensorActive = false;
 
@@ -81,7 +92,8 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _sendSteering(0.0, force: true);
+    _sendNeutralPacket();
+    _sendTimer?.cancel();
     _accelerometerSubscription?.cancel();
     _socket?.close();
     _ipController.dispose();
@@ -94,7 +106,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
-      _resetSteering(sendPacket: true);
+      _resetControls(sendPacket: true);
     }
   }
 
@@ -106,12 +118,12 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
           _handleAccelerometerEvent,
           onError: (Object error) {
             _sensorActive = false;
-            _resetSteering(sendPacket: true);
+            _resetControls(sendPacket: true);
             _showSnackBar('Sensor error: $error');
           },
           onDone: () {
             _sensorActive = false;
-            _resetSteering(sendPacket: true);
+            _resetControls(sendPacket: true);
           },
           cancelOnError: false,
         );
@@ -144,7 +156,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
         _isConnecting = false;
       });
 
-      _sendSteering(_steeringValue, force: true);
+      _sendControllerState();
+      _sendTimer?.cancel();
+      _sendTimer = Timer.periodic(_sendInterval, (_) => _sendControllerState());
       _showSnackBar('Connected to ${address.address}:$_udpPort');
     } on SocketException catch (error) {
       if (!mounted) {
@@ -168,13 +182,14 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   }
 
   void _disconnect() {
-    _resetSteering(sendPacket: true);
+    _resetControls(sendPacket: true);
+    _sendTimer?.cancel();
+    _sendTimer = null;
     _socket?.close();
 
     setState(() {
       _socket = null;
       _pcAddress = null;
-      _manualLeftX = 0.0;
     });
 
     _showSnackBar('Disconnected.');
@@ -215,13 +230,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       }
 
       if (steeringChanged) {
-        _steeringValue = smoothedSteering;
+        _steeringValue = smoothedSteering.clamp(-1.0, 1.0);
       }
     });
-
-    if (steeringChanged) {
-      _sendSteering(_steeringValue);
-    }
   }
 
   double _landscapeRollDegrees(AccelerometerEvent event) {
@@ -255,7 +266,8 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
 
   void _calibrate() {
     _calibratedRollDegrees = _rawRollDegrees;
-    _resetSteering(sendPacket: true);
+    _resetSteeringOnly();
+    _sendNeutralPacket();
     _showSnackBar('Tilt center calibrated.');
   }
 
@@ -265,7 +277,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _steeringValue = 0.0;
     });
 
-    _sendSteering(0.0, force: true);
+    _sendNeutralPacket();
   }
 
   void _setMode(SteeringMode mode) {
@@ -279,7 +291,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _steeringValue = 0.0;
     });
 
-    _sendSteering(0.0, force: true);
+    _sendNeutralPacket();
   }
 
   void _onManualSteeringChanged(double value) {
@@ -287,17 +299,34 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _manualLeftX = value;
       _steeringValue = value;
     });
-
-    if (_steeringMode == SteeringMode.manual) {
-      _sendSteering(value);
-    }
   }
 
-  void _resetSteering({required bool sendPacket}) {
-    if (!mounted) {
-      if (sendPacket) {
-        _sendSteering(0.0, force: true);
+  void _setPedalValue(String pedal, double value) {
+    final clampedValue = value.clamp(0.0, 1.0);
+
+    setState(() {
+      if (pedal == 'throttle') {
+        _throttle = clampedValue;
+      } else {
+        _brake = clampedValue;
       }
+    });
+  }
+
+  void _setButton(String button, bool isPressed) {
+    setState(() {
+      if (button == 'gear_up') {
+        _gearUp = isPressed;
+      } else if (button == 'gear_down') {
+        _gearDown = isPressed;
+      } else {
+        _handbrake = isPressed;
+      }
+    });
+  }
+
+  void _resetSteeringOnly() {
+    if (!mounted) {
       return;
     }
 
@@ -305,13 +334,50 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _manualLeftX = 0.0;
       _steeringValue = 0.0;
     });
+  }
+
+  void _resetControls({required bool sendPacket}) {
+    if (!mounted) {
+      if (sendPacket) {
+        _sendNeutralPacket();
+      }
+      return;
+    }
+
+    setState(() {
+      _manualLeftX = 0.0;
+      _steeringValue = 0.0;
+      _throttle = 0.0;
+      _brake = 0.0;
+      _gearUp = false;
+      _gearDown = false;
+      _handbrake = false;
+    });
 
     if (sendPacket) {
-      _sendSteering(0.0, force: true);
+      _sendNeutralPacket();
     }
   }
 
-  void _sendSteering(double leftX, {bool force = false}) {
+  void _sendNeutralPacket() {
+    _sendControllerState(
+      leftX: 0.0,
+      throttle: 0.0,
+      brake: 0.0,
+      gearUp: false,
+      gearDown: false,
+      handbrake: false,
+    );
+  }
+
+  void _sendControllerState({
+    double? leftX,
+    double? throttle,
+    double? brake,
+    bool? gearUp,
+    bool? gearDown,
+    bool? handbrake,
+  }) {
     final socket = _socket;
     final address = _pcAddress;
 
@@ -319,18 +385,19 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       return;
     }
 
-    if (!force && _networkStopwatch.elapsed < _networkInterval) {
-      return;
-    }
-
     final packet = jsonEncode({
+      'version': 1,
       'type': 'gamepad_update',
-      'left_x': leftX.clamp(-1.0, 1.0),
+      'left_x': (leftX ?? _steeringValue).clamp(-1.0, 1.0),
+      'throttle': (throttle ?? _throttle).clamp(0.0, 1.0),
+      'brake': (brake ?? _brake).clamp(0.0, 1.0),
+      'gear_up': gearUp ?? _gearUp,
+      'gear_down': gearDown ?? _gearDown,
+      'handbrake': handbrake ?? _handbrake,
     });
 
     try {
       socket.send(utf8.encode(packet), address, _udpPort);
-      _networkStopwatch.reset();
     } on SocketException catch (error) {
       _showSnackBar('Socket error: ${error.message}');
     } catch (error) {
@@ -354,100 +421,271 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     final sensorText = _sensorActive ? 'Sensor active' : 'Sensor waiting';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('GyroPlay'), centerTitle: false),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextField(
-                controller: _ipController,
-                enabled: !_isConnected && !_isConnecting,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'GyroPlay',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _ipController,
+                      enabled: !_isConnected && !_isConnecting,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'PC IPv4 address',
+                        hintText: '192.168.1.20',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      onPressed: _isConnecting
+                          ? null
+                          : _isConnected
+                          ? _disconnect
+                          : _connect,
+                      child: Text(_isConnected ? 'Disconnect' : 'Connect'),
+                    ),
+                    const SizedBox(height: 10),
+                    SegmentedButton<SteeringMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: SteeringMode.tilt,
+                          label: Text('Tilt'),
+                        ),
+                        ButtonSegment(
+                          value: SteeringMode.manual,
+                          label: Text('Manual'),
+                        ),
+                      ],
+                      selected: {_steeringMode},
+                      onSelectionChanged: (selection) =>
+                          _setMode(selection.first),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('Invert steering'),
+                      value: _invertSteering,
+                      onChanged: _setInvertSteering,
+                    ),
+                    OutlinedButton(
+                      onPressed: _sensorActive ? _calibrate : null,
+                      child: const Text('Calibrate'),
+                    ),
+                  ],
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'PC IPv4 address',
-                  hintText: '192.168.1.20',
-                  border: OutlineInputBorder(),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      statusText,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Text(sensorText),
+                    const SizedBox(height: 12),
+                    Text('Roll: ${_currentTiltDegrees.toStringAsFixed(1)} deg'),
+                    Text(
+                      'Steering: ${_steeringValue.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    if (_steeringMode == SteeringMode.manual)
+                      Slider(
+                        value: _manualLeftX,
+                        min: -1.0,
+                        max: 1.0,
+                        divisions: 200,
+                        label: _manualLeftX.toStringAsFixed(2),
+                        onChanged: _onManualSteeringChanged,
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: LinearProgressIndicator(
+                          value: (_steeringValue + 1.0) / 2.0,
+                          minHeight: 12,
+                        ),
+                      ),
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _HoldButton(
+                            label: 'Gear down',
+                            isPressed: _gearDown,
+                            onChanged: (pressed) =>
+                                _setButton('gear_down', pressed),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _HoldButton(
+                            label: 'Gear up',
+                            isPressed: _gearUp,
+                            onChanged: (pressed) =>
+                                _setButton('gear_up', pressed),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _HoldButton(
+                      label: 'Handbrake',
+                      isPressed: _handbrake,
+                      onChanged: (pressed) => _setButton('handbrake', pressed),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _isConnecting
-                    ? null
-                    : _isConnected
-                    ? _disconnect
-                    : _connect,
-                child: Text(_isConnected ? 'Disconnect' : 'Connect'),
-              ),
-              const SizedBox(height: 24),
-              SegmentedButton<SteeringMode>(
-                segments: const [
-                  ButtonSegment(
-                    value: SteeringMode.tilt,
-                    label: Text('Tilt steering'),
-                  ),
-                  ButtonSegment(
-                    value: SteeringMode.manual,
-                    label: Text('Manual slider'),
-                  ),
-                ],
-                selected: {_steeringMode},
-                onSelectionChanged: (selection) => _setMode(selection.first),
-              ),
-              const SizedBox(height: 24),
-              Text(statusText, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(sensorText),
-              const SizedBox(height: 24),
-              Text('Tilt angle', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(
-                '${_currentTiltDegrees.toStringAsFixed(1)} deg',
-                style: Theme.of(context).textTheme.displaySmall,
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: _sensorActive ? _calibrate : null,
-                child: const Text('Calibrate'),
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Invert steering'),
-                value: _invertSteering,
-                onChanged: _setInvertSteering,
-              ),
-              const SizedBox(height: 32),
-              Text(
-                'Steering value',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _steeringValue.toStringAsFixed(2),
-                style: Theme.of(context).textTheme.displaySmall,
-              ),
-              const SizedBox(height: 12),
-              if (_steeringMode == SteeringMode.manual)
-                Slider(
-                  value: _manualLeftX,
-                  min: -1.0,
-                  max: 1.0,
-                  divisions: 200,
-                  label: _manualLeftX.toStringAsFixed(2),
-                  onChanged: _onManualSteeringChanged,
-                )
-              else
-                LinearProgressIndicator(
-                  value: (_steeringValue + 1.0) / 2.0,
-                  minHeight: 10,
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 4,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _Pedal(
+                        label: 'Brake',
+                        value: _brake,
+                        onChanged: (value) => _setPedalValue('brake', value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _Pedal(
+                        label: 'Throttle',
+                        value: _throttle,
+                        onChanged: (value) => _setPedalValue('throttle', value),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _Pedal extends StatelessWidget {
+  const _Pedal({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        void updateFromOffset(Offset localPosition) {
+          final height = constraints.maxHeight;
+          final nextValue = (1.0 - (localPosition.dy / height)).clamp(0.0, 1.0);
+          onChanged(nextValue);
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (details) => updateFromOffset(details.localPosition),
+          onTapUp: (_) => onChanged(0.0),
+          onTapCancel: () => onChanged(0.0),
+          onVerticalDragDown: (details) =>
+              updateFromOffset(details.localPosition),
+          onVerticalDragUpdate: (details) =>
+              updateFromOffset(details.localPosition),
+          onVerticalDragEnd: (_) => onChanged(0.0),
+          onVerticalDragCancel: () => onChanged(0.0),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Theme.of(context).colorScheme.outline),
+            ),
+            child: Stack(
+              alignment: Alignment.bottomCenter,
+              children: [
+                FractionallySizedBox(
+                  heightFactor: value,
+                  alignment: Alignment.bottomCenter,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(value.toStringAsFixed(2)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _HoldButton extends StatelessWidget {
+  const _HoldButton({
+    required this.label,
+    required this.isPressed,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool isPressed;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => onChanged(true),
+      onTapUp: (_) => onChanged(false),
+      onTapCancel: () => onChanged(false),
+      child: AnimatedContainer(
+        duration: Duration.zero,
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isPressed
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(label, style: Theme.of(context).textTheme.titleMedium),
       ),
     );
   }
