@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "GyroPlay.Desktop (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "GyroPlay.Desktop (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
