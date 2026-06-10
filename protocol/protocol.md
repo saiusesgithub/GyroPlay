@@ -1,6 +1,6 @@
 # GyroPlay UDP Protocol
 
-GyroPlay uses UDP JSON packets from the mobile app to the PC engine.
+GyroPlay uses UDP JSON packets between the mobile app and the PC engine.
 
 Current version: `1`
 
@@ -9,12 +9,77 @@ Default destination:
 - Host: PC IPv4 address
 - Port: `5005`
 
+## Pairing Flow
+
+1. Mobile sends `hello`.
+2. PC replies with `hello_ack`.
+3. Mobile stores the returned `session_id`.
+4. Mobile includes `session_id` in every `heartbeat` and `gamepad_update` packet.
+5. PC rejects controller packets with a missing or invalid `session_id`.
+
+## Packet: hello
+
+Sent by the mobile app before controller input starts.
+
+```json
+{
+  "version": 1,
+  "type": "hello",
+  "device_name": "Android Phone"
+}
+```
+
+Fields:
+
+- `version`: Protocol version. Must be `1`.
+- `type`: Packet type. Must be `"hello"`.
+- `device_name`: Human-readable device name. String.
+
+## Packet: hello_ack
+
+Sent by the PC engine in response to `hello`.
+
+```json
+{
+  "version": 1,
+  "type": "hello_ack",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d"
+}
+```
+
+Fields:
+
+- `version`: Protocol version. Must be `1`.
+- `type`: Packet type. Must be `"hello_ack"`.
+- `session_id`: Generated session identifier. String.
+
+## Packet: heartbeat
+
+Sent by the mobile app every 1 second while connected.
+
+```json
+{
+  "version": 1,
+  "type": "heartbeat",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d"
+}
+```
+
+Fields:
+
+- `version`: Protocol version. Must be `1`.
+- `type`: Packet type. Must be `"heartbeat"`.
+- `session_id`: Active session identifier from `hello_ack`.
+
 ## Packet: gamepad_update
+
+Sent by the mobile app while connected. Current target rate is about 60 packets per second.
 
 ```json
 {
   "version": 1,
   "type": "gamepad_update",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
   "left_x": 0.0,
   "throttle": 0.0,
   "brake": 0.0,
@@ -28,6 +93,7 @@ Fields:
 
 - `version`: Protocol version. Must be `1`.
 - `type`: Packet type. Must be `"gamepad_update"`.
+- `session_id`: Active session identifier from `hello_ack`.
 - `left_x`: Steering axis. Number from `-1.0` to `1.0`.
   - `-1.0` means full left.
   - `0.0` means centered.
@@ -44,6 +110,10 @@ Fields:
 
 Receivers should clamp numeric fields to their valid ranges and reject packets with invalid field types.
 
+## Timeout Behavior
+
+If no valid `heartbeat` or `gamepad_update` packet is received for 3 seconds, the PC engine marks the phone disconnected and returns to a neutral controller state.
+
 ## Current PC Mapping
 
 - `left_x`: Xbox 360 left joystick X-axis.
@@ -52,5 +122,3 @@ Receivers should clamp numeric fields to their valid ranges and reject packets w
 - `gear_up`: Xbox 360 A button.
 - `gear_down`: Xbox 360 X button.
 - `handbrake`: Xbox 360 B button.
-
-If valid packets stop arriving for 500 milliseconds, the PC engine should return to a neutral controller state.

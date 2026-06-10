@@ -36,7 +36,7 @@ flutter run
 
 1. Put the phone and PC on the same network.
 2. Enter the PC IPv4 address in the app.
-3. Tap `Connect`.
+3. Tap `Connect`. The app shows `Connecting` until the engine replies with `hello_ack`.
 4. The controller screen runs in landscape orientation.
 5. Hold the phone like a steering wheel.
 6. Tap `Calibrate`.
@@ -72,12 +72,23 @@ Manual mode keeps the debug steering slider available. Pedals and buttons contin
 
 ## UDP Packet
 
-The app sends the complete controller state about 60 times per second while connected:
+The app sends `hello` first:
+
+```json
+{
+  "version": 1,
+  "type": "hello",
+  "device_name": "Android Phone"
+}
+```
+
+After the engine replies with `hello_ack`, the app sends heartbeats once per second and the complete controller state about 60 times per second:
 
 ```json
 {
   "version": 1,
   "type": "gamepad_update",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
   "left_x": 0.0,
   "throttle": 0.0,
   "brake": 0.0,
@@ -86,5 +97,7 @@ The app sends the complete controller state about 60 times per second while conn
   "handbrake": false
 }
 ```
+
+If the handshake fails, the app shows `Connection lost`. If the engine stops receiving heartbeat/input, it disconnects the session and resets controller output.
 
 Tap `Disconnect` to send a neutral state, close the UDP socket, and reset all controls.

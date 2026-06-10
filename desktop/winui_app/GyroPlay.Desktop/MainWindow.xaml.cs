@@ -250,12 +250,12 @@ public sealed partial class MainWindow : Window
 
     private void UpdatePhoneStatusFromLog(string line)
     {
-        if (line.Contains("Valid controller session started", StringComparison.OrdinalIgnoreCase))
+        if (line.Contains("Phone connected", StringComparison.OrdinalIgnoreCase))
         {
             PhoneStatusText.Text = "Connected";
             LastPacketText.Text = DateTime.Now.ToString("HH:mm:ss");
         }
-        else if (line.Contains("Safety timeout", StringComparison.OrdinalIgnoreCase))
+        else if (line.Contains("Phone disconnected", StringComparison.OrdinalIgnoreCase))
         {
             PhoneStatusText.Text = "Disconnected";
         }

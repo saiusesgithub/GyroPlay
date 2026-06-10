@@ -2,7 +2,7 @@
 
 This is the first proof-of-concept controller engine for GyroPlay.
 
-It creates a virtual Xbox 360 controller with `vgamepad` and listens for UDP JSON packets that update the left joystick X-axis. The left joystick Y-axis stays centered.
+It creates a virtual Xbox 360 controller with `vgamepad` and listens for UDP JSON packets from the mobile app. The engine performs a basic hello/ack pairing flow, validates `session_id`, and maps racing controls to the virtual controller.
 
 ## Windows Setup
 
@@ -46,12 +46,33 @@ python test_sender.py
 
 The test sender repeatedly sends smooth steering values from center to right, right to left, and left back to center.
 
-The engine listens on `0.0.0.0:5005`. Test packets are sent to `127.0.0.1:5005` in this format:
+The engine listens on `0.0.0.0:5005`. Clients first send:
+
+```json
+{
+  "version": 1,
+  "type": "hello",
+  "device_name": "Android Phone"
+}
+```
+
+The engine replies with:
+
+```json
+{
+  "version": 1,
+  "type": "hello_ack",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d"
+}
+```
+
+Gamepad packets then include that `session_id`:
 
 ```json
 {
   "version": 1,
   "type": "gamepad_update",
+  "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
   "left_x": 0.5,
   "throttle": 0.0,
   "brake": 0.0,
@@ -63,7 +84,7 @@ The engine listens on `0.0.0.0:5005`. Test packets are sent to `127.0.0.1:5005` 
 
 `left_x` is clamped between `-1.0` and `1.0`. `throttle` and `brake` are clamped between `0.0` and `1.0`.
 
-If the engine does not receive a valid packet for 500 milliseconds, it centers steering, releases both triggers, and releases all buttons.
+If the engine does not receive a valid heartbeat or input packet for 3 seconds, it marks the phone disconnected, centers steering, releases both triggers, and releases all buttons.
 
 Stop either script with `Ctrl+C`.
 

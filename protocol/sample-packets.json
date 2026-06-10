@@ -1,9 +1,34 @@
 [
   {
+    "name": "hello",
+    "packet": {
+      "version": 1,
+      "type": "hello",
+      "device_name": "Android Phone"
+    }
+  },
+  {
+    "name": "hello_ack",
+    "packet": {
+      "version": 1,
+      "type": "hello_ack",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d"
+    }
+  },
+  {
+    "name": "heartbeat",
+    "packet": {
+      "version": 1,
+      "type": "heartbeat",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d"
+    }
+  },
+  {
     "name": "neutral",
     "packet": {
       "version": 1,
       "type": "gamepad_update",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
       "left_x": 0.0,
       "throttle": 0.0,
       "brake": 0.0,
@@ -17,6 +42,7 @@
     "packet": {
       "version": 1,
       "type": "gamepad_update",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
       "left_x": 0.45,
       "throttle": 0.8,
       "brake": 0.0,
@@ -30,6 +56,7 @@
     "packet": {
       "version": 1,
       "type": "gamepad_update",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
       "left_x": -0.65,
       "throttle": 0.0,
       "brake": 0.7,
@@ -43,6 +70,7 @@
     "packet": {
       "version": 1,
       "type": "gamepad_update",
+      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
       "left_x": 0.0,
       "throttle": 1.0,
       "brake": 0.0,

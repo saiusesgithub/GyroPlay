@@ -18,6 +18,8 @@ Future<void> main() async {
 
 enum SteeringMode { tilt, manual }
 
+enum ConnectionStatus { disconnected, connecting, connected, connectionLost }
+
 class GyroPlayApp extends StatelessWidget {
   const GyroPlayApp({super.key});
 
@@ -63,9 +65,14 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   RawDatagramSocket? _socket;
   InternetAddress? _pcAddress;
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
+  StreamSubscription<RawSocketEvent>? _socketSubscription;
   Timer? _sendTimer;
+  Timer? _heartbeatTimer;
+  Timer? _connectTimeoutTimer;
 
+  ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   SteeringMode _steeringMode = SteeringMode.tilt;
+  String? _sessionId;
   double _manualLeftX = 0.0;
   double _steeringValue = 0.0;
   double _rawRollDegrees = 0.0;
@@ -77,10 +84,10 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   bool _gearUp = false;
   bool _gearDown = false;
   bool _handbrake = false;
-  bool _isConnecting = false;
   bool _sensorActive = false;
 
-  bool get _isConnected => _socket != null;
+  bool get _isConnected => _connectionStatus == ConnectionStatus.connected;
+  bool get _isConnecting => _connectionStatus == ConnectionStatus.connecting;
 
   @override
   void initState() {
@@ -94,6 +101,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     WidgetsBinding.instance.removeObserver(this);
     _sendNeutralPacket();
     _sendTimer?.cancel();
+    _heartbeatTimer?.cancel();
+    _connectTimeoutTimer?.cancel();
+    _socketSubscription?.cancel();
     _accelerometerSubscription?.cancel();
     _socket?.close();
     _ipController.dispose();
@@ -139,7 +149,8 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     }
 
     setState(() {
-      _isConnecting = true;
+      _connectionStatus = ConnectionStatus.connecting;
+      _sessionId = null;
     });
 
     try {
@@ -153,20 +164,27 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       setState(() {
         _socket = socket;
         _pcAddress = address;
-        _isConnecting = false;
       });
 
-      _sendControllerState();
-      _sendTimer?.cancel();
-      _sendTimer = Timer.periodic(_sendInterval, (_) => _sendControllerState());
-      _showSnackBar('Connected to ${address.address}:$_udpPort');
+      _socketSubscription?.cancel();
+      _socketSubscription = socket.listen(_handleSocketEvent);
+      _sendHello();
+      _connectTimeoutTimer?.cancel();
+      _connectTimeoutTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted || _connectionStatus != ConnectionStatus.connecting) {
+          return;
+        }
+
+        _markConnectionLost('Connection lost: no hello_ack received.');
+      });
+      _showSnackBar('Connecting to ${address.address}:$_udpPort');
     } on SocketException catch (error) {
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _isConnecting = false;
+        _connectionStatus = ConnectionStatus.disconnected;
       });
       _showSnackBar('Socket error: ${error.message}');
     } catch (error) {
@@ -175,7 +193,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       }
 
       setState(() {
-        _isConnecting = false;
+        _connectionStatus = ConnectionStatus.disconnected;
       });
       _showSnackBar('Connection failed: $error');
     }
@@ -185,14 +203,89 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     _resetControls(sendPacket: true);
     _sendTimer?.cancel();
     _sendTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = null;
+    _socketSubscription?.cancel();
+    _socketSubscription = null;
     _socket?.close();
 
     setState(() {
       _socket = null;
       _pcAddress = null;
+      _sessionId = null;
+      _connectionStatus = ConnectionStatus.disconnected;
     });
 
     _showSnackBar('Disconnected.');
+  }
+
+  void _handleSocketEvent(RawSocketEvent event) {
+    if (event != RawSocketEvent.read) {
+      return;
+    }
+
+    final datagram = _socket?.receive();
+    if (datagram == null) {
+      return;
+    }
+
+    try {
+      final packet = jsonDecode(utf8.decode(datagram.data));
+      if (packet is! Map<String, dynamic>) {
+        return;
+      }
+
+      if (packet['version'] == 1 &&
+          packet['type'] == 'hello_ack' &&
+          packet['session_id'] is String) {
+        _handleHelloAck(packet['session_id'] as String);
+      }
+    } catch (error) {
+      _showSnackBar('Failed to parse engine response: $error');
+    }
+  }
+
+  void _handleHelloAck(String sessionId) {
+    _connectTimeoutTimer?.cancel();
+
+    setState(() {
+      _sessionId = sessionId;
+      _connectionStatus = ConnectionStatus.connected;
+    });
+
+    _sendControllerState();
+    _sendTimer?.cancel();
+    _sendTimer = Timer.periodic(_sendInterval, (_) => _sendControllerState());
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _sendHeartbeat(),
+    );
+    _showSnackBar('Connected.');
+  }
+
+  void _markConnectionLost(String message) {
+    _resetControls(sendPacket: false);
+    _sendTimer?.cancel();
+    _sendTimer = null;
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+    _connectTimeoutTimer?.cancel();
+    _connectTimeoutTimer = null;
+    _socketSubscription?.cancel();
+    _socketSubscription = null;
+    _socket?.close();
+
+    setState(() {
+      _socket = null;
+      _pcAddress = null;
+      _sessionId = null;
+      _connectionStatus = ConnectionStatus.connectionLost;
+    });
+
+    _showSnackBar(message);
   }
 
   void _handleAccelerometerEvent(AccelerometerEvent event) {
@@ -370,6 +463,53 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     );
   }
 
+  void _sendHello() {
+    final socket = _socket;
+    final address = _pcAddress;
+
+    if (socket == null || address == null) {
+      return;
+    }
+
+    final packet = jsonEncode({
+      'version': 1,
+      'type': 'hello',
+      'device_name': 'Android Phone',
+    });
+
+    try {
+      socket.send(utf8.encode(packet), address, _udpPort);
+    } on SocketException catch (error) {
+      _markConnectionLost('Socket error: ${error.message}');
+    } catch (error) {
+      _markConnectionLost('Failed to send hello: $error');
+    }
+  }
+
+  void _sendHeartbeat() {
+    final socket = _socket;
+    final address = _pcAddress;
+    final sessionId = _sessionId;
+
+    if (socket == null || address == null || sessionId == null) {
+      return;
+    }
+
+    final packet = jsonEncode({
+      'version': 1,
+      'type': 'heartbeat',
+      'session_id': sessionId,
+    });
+
+    try {
+      socket.send(utf8.encode(packet), address, _udpPort);
+    } on SocketException catch (error) {
+      _markConnectionLost('Socket error: ${error.message}');
+    } catch (error) {
+      _markConnectionLost('Failed to send heartbeat: $error');
+    }
+  }
+
   void _sendControllerState({
     double? leftX,
     double? throttle,
@@ -380,14 +520,16 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   }) {
     final socket = _socket;
     final address = _pcAddress;
+    final sessionId = _sessionId;
 
-    if (socket == null || address == null) {
+    if (socket == null || address == null || sessionId == null) {
       return;
     }
 
     final packet = jsonEncode({
       'version': 1,
       'type': 'gamepad_update',
+      'session_id': sessionId,
       'left_x': (leftX ?? _steeringValue).clamp(-1.0, 1.0),
       'throttle': (throttle ?? _throttle).clamp(0.0, 1.0),
       'brake': (brake ?? _brake).clamp(0.0, 1.0),
@@ -399,9 +541,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     try {
       socket.send(utf8.encode(packet), address, _udpPort);
     } on SocketException catch (error) {
-      _showSnackBar('Socket error: ${error.message}');
+      _markConnectionLost('Socket error: ${error.message}');
     } catch (error) {
-      _showSnackBar('Failed to send packet: $error');
+      _markConnectionLost('Failed to send packet: $error');
     }
   }
 
@@ -417,7 +559,12 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
 
   @override
   Widget build(BuildContext context) {
-    final statusText = _isConnected ? 'Connected' : 'Disconnected';
+    final statusText = switch (_connectionStatus) {
+      ConnectionStatus.connecting => 'Connecting',
+      ConnectionStatus.connected => 'Connected',
+      ConnectionStatus.connectionLost => 'Connection lost',
+      ConnectionStatus.disconnected => 'Disconnected',
+    };
     final sensorText = _sensorActive ? 'Sensor active' : 'Sensor waiting';
 
     return Scaffold(

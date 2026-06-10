@@ -2,6 +2,7 @@ import json
 import socket
 import sys
 import time
+import uuid
 
 try:
     import vgamepad as vg
@@ -14,7 +15,7 @@ except ImportError:
 HOST = "0.0.0.0"
 PORT = 5005
 SOCKET_TIMEOUT_SECONDS = 0.05
-SAFETY_TIMEOUT_SECONDS = 0.5
+SESSION_TIMEOUT_SECONDS = 3.0
 LEFT_STICK_MIN = -32768
 LEFT_STICK_MAX = 32767
 TRIGGER_MAX = 255
@@ -71,6 +72,25 @@ def send_neutral_state(gamepad):
     gamepad.update()
 
 
+def parse_json_packet(data):
+    try:
+        packet = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"invalid JSON ({error})") from error
+
+    if not isinstance(packet, dict):
+        raise ValueError("JSON root must be an object")
+
+    if packet.get("version") != SUPPORTED_VERSION:
+        raise ValueError(f"version must equal {SUPPORTED_VERSION}")
+
+    packet_type = packet.get("type")
+    if not isinstance(packet_type, str):
+        raise ValueError("type must be a string")
+
+    return packet
+
+
 def parse_number(packet, field, minimum, maximum):
     value = packet.get(field)
     if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -87,20 +107,12 @@ def parse_bool(packet, field):
     return value
 
 
-def parse_packet(data):
-    try:
-        packet = json.loads(data.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise ValueError(f"invalid JSON ({error})") from error
-
-    if not isinstance(packet, dict):
-        raise ValueError("JSON root must be an object")
-
-    if packet.get("version") != SUPPORTED_VERSION:
-        raise ValueError(f"version must equal {SUPPORTED_VERSION}")
-
+def parse_gamepad_update(packet, expected_session_id):
     if packet.get("type") != "gamepad_update":
         raise ValueError('type must equal "gamepad_update"')
+
+    if packet.get("session_id") != expected_session_id:
+        raise ValueError("invalid session_id")
 
     return {
         "left_x": parse_number(packet, "left_x", -1.0, 1.0),
@@ -110,6 +122,14 @@ def parse_packet(data):
         "gear_down": parse_bool(packet, "gear_down"),
         "handbrake": parse_bool(packet, "handbrake"),
     }
+
+
+def parse_heartbeat(packet, expected_session_id):
+    if packet.get("type") != "heartbeat":
+        raise ValueError('type must equal "heartbeat"')
+
+    if packet.get("session_id") != expected_session_id:
+        raise ValueError("invalid session_id")
 
 
 def apply_controller_state(gamepad, state):
@@ -127,6 +147,15 @@ def apply_controller_state(gamepad, state):
             gamepad.release_button(button=button)
 
     gamepad.update()
+
+
+def send_hello_ack(udp_socket, address, session_id):
+    packet = {
+        "version": SUPPORTED_VERSION,
+        "type": "hello_ack",
+        "session_id": session_id,
+    }
+    udp_socket.sendto(json.dumps(packet).encode("utf-8"), address)
 
 
 def main():
@@ -154,11 +183,12 @@ def main():
 
     print("Controller initialized.")
     print(f"UDP server listening on {HOST}:{PORT}")
-    print("Waiting for gamepad_update packets. Press Ctrl+C to stop.")
+    print("Waiting for hello packets. Press Ctrl+C to stop.")
 
     session_address = None
-    last_valid_packet_time = None
-    timeout_reported = False
+    session_id = None
+    last_session_packet_time = None
+    disconnected_reported = False
 
     try:
         send_neutral_state(gamepad)
@@ -168,36 +198,79 @@ def main():
                 data, address = udp_socket.recvfrom(4096)
             except socket.timeout:
                 if (
-                    last_valid_packet_time is not None
-                    and not timeout_reported
-                    and time.monotonic() - last_valid_packet_time >= SAFETY_TIMEOUT_SECONDS
+                    session_id is not None
+                    and last_session_packet_time is not None
+                    and time.monotonic() - last_session_packet_time >= SESSION_TIMEOUT_SECONDS
+                    and not disconnected_reported
                 ):
-                    print("Safety timeout: no valid packet for 500 ms. Neutralizing controller.")
+                    print("Phone disconnected: no heartbeat/input for 3 seconds. Neutralizing controller.")
                     send_neutral_state(gamepad)
                     session_address = None
-                    timeout_reported = True
+                    session_id = None
+                    last_session_packet_time = None
+                    disconnected_reported = True
 
-                continue
-
-            if session_address is not None and address != session_address:
-                print(f"Ignoring packet from {address[0]}:{address[1]} while session is active.")
-                send_neutral_state(gamepad)
                 continue
 
             try:
-                state = parse_packet(data)
+                packet = parse_json_packet(data)
             except ValueError as error:
                 print(f"Warning: malformed packet ignored: {error}")
+                continue
+
+            packet_type = packet.get("type")
+
+            if packet_type == "hello":
+                device_name = packet.get("device_name", "Unknown device")
+                if not isinstance(device_name, str):
+                    print("Warning: malformed hello ignored: device_name must be a string")
+                    continue
+
+                session_address = address
+                session_id = uuid.uuid4().hex
+                last_session_packet_time = time.monotonic()
+                disconnected_reported = False
+                send_neutral_state(gamepad)
+                send_hello_ack(udp_socket, address, session_id)
+                print(f"Phone connected: {device_name} from {address[0]}:{address[1]}")
+                print(f"Session started: {session_id}")
+                continue
+
+            if session_id is None or session_address is None:
+                print("Warning: packet ignored: no active session. Send hello first.")
                 send_neutral_state(gamepad)
                 continue
 
-            if session_address is None:
-                session_address = address
-                print(f"Valid controller session started from {address[0]}:{address[1]}")
+            if address != session_address:
+                print(f"Ignoring packet from {address[0]}:{address[1]} while session is active.")
+                continue
 
-            apply_controller_state(gamepad, state)
-            last_valid_packet_time = time.monotonic()
-            timeout_reported = False
+            if packet_type == "heartbeat":
+                try:
+                    parse_heartbeat(packet, session_id)
+                except ValueError as error:
+                    print(f"Warning: heartbeat ignored: {error}")
+                    send_neutral_state(gamepad)
+                    continue
+
+                last_session_packet_time = time.monotonic()
+                disconnected_reported = False
+                continue
+
+            if packet_type == "gamepad_update":
+                try:
+                    state = parse_gamepad_update(packet, session_id)
+                except ValueError as error:
+                    print(f"Warning: gamepad_update ignored: {error}")
+                    send_neutral_state(gamepad)
+                    continue
+
+                apply_controller_state(gamepad, state)
+                last_session_packet_time = time.monotonic()
+                disconnected_reported = False
+                continue
+
+            print(f"Warning: unsupported packet type ignored: {packet_type}")
     except KeyboardInterrupt:
         print("\nCtrl+C received. Shutting down...")
     finally:
