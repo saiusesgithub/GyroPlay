@@ -88,6 +88,52 @@
                     CornerRadius="8">
                     <StackPanel Spacing="12">
                         <TextBlock
+                            Text="Easy pairing"
+                            FontSize="20"
+                            FontWeight="SemiBold" />
+
+                        <Border
+                            HorizontalAlignment="Left"
+                            Padding="10"
+                            Background="White"
+                            CornerRadius="6">
+                            <Image
+                                x:Name="PairingQrImage"
+                                Width="190"
+                                Height="190" />
+                        </Border>
+
+                        <TextBlock
+                            x:Name="TokenExpiryText"
+                            Foreground="#9BA4B5"
+                            Text="Expires: -" />
+
+                        <TextBlock
+                            Text="Manual token"
+                            Foreground="#9BA4B5" />
+
+                        <TextBlock
+                            x:Name="PairingTokenText"
+                            FontFamily="Consolas"
+                            FontSize="18"
+                            Text="-" />
+
+                        <Button
+                            x:Name="RefreshPairingButton"
+                            Content="Refresh Pairing Code"
+                            HorizontalAlignment="Stretch"
+                            Click="RefreshPairingButton_Click" />
+                    </StackPanel>
+                </Border>
+
+                <Border
+                    Padding="18"
+                    Background="#1A1D24"
+                    BorderBrush="#2A2F3A"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <StackPanel Spacing="12">
+                        <TextBlock
                             Text="Engine controls"
                             FontSize="20"
                             FontWeight="SemiBold" />

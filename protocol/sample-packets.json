@@ -1,10 +1,32 @@
 [
   {
+    "name": "qr pairing payload",
+    "packet": {
+      "version": 1,
+      "type": "gyroplay_pairing",
+      "host": "192.168.0.4",
+      "port": 5005,
+      "pairing_token": "A1B2C3D4",
+      "expires_at": "2026-06-10T12:30:00.0000000+00:00"
+    }
+  },
+  {
+    "name": "discovery broadcast",
+    "packet": {
+      "version": 1,
+      "type": "gyroplay_discovery",
+      "name": "GyroPlay PC",
+      "host": "192.168.0.4",
+      "port": 5005
+    }
+  },
+  {
     "name": "hello",
     "packet": {
       "version": 1,
       "type": "hello",
-      "device_name": "Android Phone"
+      "device_name": "Android Phone",
+      "pairing_token": "A1B2C3D4"
     }
   },
   {
@@ -33,48 +55,6 @@
       "throttle": 0.0,
       "brake": 0.0,
       "gear_up": false,
-      "gear_down": false,
-      "handbrake": false
-    }
-  },
-  {
-    "name": "accelerating right",
-    "packet": {
-      "version": 1,
-      "type": "gamepad_update",
-      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
-      "left_x": 0.45,
-      "throttle": 0.8,
-      "brake": 0.0,
-      "gear_up": false,
-      "gear_down": false,
-      "handbrake": false
-    }
-  },
-  {
-    "name": "braking left with handbrake",
-    "packet": {
-      "version": 1,
-      "type": "gamepad_update",
-      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
-      "left_x": -0.65,
-      "throttle": 0.0,
-      "brake": 0.7,
-      "gear_up": false,
-      "gear_down": false,
-      "handbrake": true
-    }
-  },
-  {
-    "name": "gear up pressed",
-    "packet": {
-      "version": 1,
-      "type": "gamepad_update",
-      "session_id": "9f7b1b7f0cf7470dbb2dd2f0a58a6f1d",
-      "left_x": 0.0,
-      "throttle": 1.0,
-      "brake": 0.0,
-      "gear_up": true,
       "gear_down": false,
       "handbrake": false
     }

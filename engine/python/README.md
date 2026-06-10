@@ -2,7 +2,7 @@
 
 This is the first proof-of-concept controller engine for GyroPlay.
 
-It creates a virtual Xbox 360 controller with `vgamepad` and listens for UDP JSON packets from the mobile app. The engine performs a basic hello/ack pairing flow, validates `session_id`, and maps racing controls to the virtual controller.
+It creates a virtual Xbox 360 controller with `vgamepad` and listens for UDP JSON packets from the mobile app. The engine performs a basic token-based hello/ack pairing flow, validates `session_id`, and maps racing controls to the virtual controller.
 
 ## Windows Setup
 
@@ -46,13 +46,14 @@ python test_sender.py
 
 The test sender repeatedly sends smooth steering values from center to right, right to left, and left back to center.
 
-The engine listens on `0.0.0.0:5005`. Clients first send:
+The engine listens on `0.0.0.0:5005`. The desktop app writes the active short-lived pairing token to `pairing.json`. Clients first send:
 
 ```json
 {
   "version": 1,
   "type": "hello",
-  "device_name": "Android Phone"
+  "device_name": "Android Phone",
+  "pairing_token": "A1B2C3D4"
 }
 ```
 

@@ -1,8 +1,10 @@
 import json
+import os
 import socket
 import sys
 import time
 import uuid
+from datetime import datetime, timezone
 
 try:
     import vgamepad as vg
@@ -20,6 +22,7 @@ LEFT_STICK_MIN = -32768
 LEFT_STICK_MAX = 32767
 TRIGGER_MAX = 255
 SUPPORTED_VERSION = 1
+PAIRING_FILE = os.path.join(os.path.dirname(__file__), "pairing.json")
 
 BUTTON_MAP = {
     "gear_up": vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
@@ -89,6 +92,63 @@ def parse_json_packet(data):
         raise ValueError("type must be a string")
 
     return packet
+
+
+def load_pairing_info():
+    if not os.path.exists(PAIRING_FILE):
+        raise ValueError("pairing code is not available. Refresh pairing code in the desktop app")
+
+    try:
+        with open(PAIRING_FILE, "r", encoding="utf-8") as file:
+            pairing_info = json.load(file)
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"could not read pairing code ({error})") from error
+
+    if not isinstance(pairing_info, dict):
+        raise ValueError("pairing file root must be an object")
+
+    if pairing_info.get("version") != SUPPORTED_VERSION:
+        raise ValueError(f"pairing file version must equal {SUPPORTED_VERSION}")
+
+    pairing_token = pairing_info.get("pairing_token")
+    if not isinstance(pairing_token, str) or not pairing_token:
+        raise ValueError("pairing_token is missing from pairing file")
+
+    expires_at_text = pairing_info.get("expires_at")
+    if not isinstance(expires_at_text, str):
+        raise ValueError("expires_at is missing from pairing file")
+
+    try:
+        expires_at = datetime.fromisoformat(expires_at_text)
+    except ValueError as error:
+        raise ValueError("expires_at is not a valid ISO timestamp") from error
+
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if datetime.now(timezone.utc) >= expires_at.astimezone(timezone.utc):
+        raise ValueError("pairing token expired. Refresh pairing code in the desktop app")
+
+    return pairing_token
+
+
+def validate_hello(packet):
+    if packet.get("type") != "hello":
+        raise ValueError('type must equal "hello"')
+
+    device_name = packet.get("device_name", "Unknown device")
+    if not isinstance(device_name, str):
+        raise ValueError("device_name must be a string")
+
+    pairing_token = packet.get("pairing_token")
+    if not isinstance(pairing_token, str) or not pairing_token:
+        raise ValueError("pairing_token is required")
+
+    expected_token = load_pairing_info()
+    if pairing_token != expected_token:
+        raise ValueError("invalid pairing_token")
+
+    return device_name
 
 
 def parse_number(packet, field, minimum, maximum):
@@ -221,9 +281,10 @@ def main():
             packet_type = packet.get("type")
 
             if packet_type == "hello":
-                device_name = packet.get("device_name", "Unknown device")
-                if not isinstance(device_name, str):
-                    print("Warning: malformed hello ignored: device_name must be a string")
+                try:
+                    device_name = validate_hello(packet)
+                except ValueError as error:
+                    print(f"Pairing rejected: {error}")
                     continue
 
                 session_address = address

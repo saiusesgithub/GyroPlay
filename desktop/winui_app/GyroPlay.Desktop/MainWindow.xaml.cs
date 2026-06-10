@@ -1,5 +1,7 @@
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Imaging;
+using QRCoder;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -7,18 +9,24 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices.WindowsRuntime;
+using System.Security.Cryptography;
+using System.Text.Json;
+using Windows.Storage.Streams;
 
 namespace GyroPlay.Desktop;
 
 public sealed partial class MainWindow : Window
 {
     private const int UdpPort = 5005;
+    private static readonly TimeSpan PairingTokenLifetime = TimeSpan.FromMinutes(5);
 
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly DispatcherTimer _statusTimer;
+    private readonly DispatcherTimer _pairingTimer;
     private Process? _engineProcess;
     private bool _stopRequested;
+    private DateTimeOffset _pairingTokenExpiresAt;
 
     public MainWindow()
     {
@@ -30,6 +38,11 @@ public sealed partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(500),
         };
         _statusTimer.Tick += StatusTimer_Tick;
+        _pairingTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(1),
+        };
+        _pairingTimer.Tick += PairingTimer_Tick;
 
         Closed += MainWindow_Closed;
 
@@ -37,6 +50,7 @@ public sealed partial class MainWindow : Window
         AppendLog("GyroPlay desktop control panel ready.");
         AppendLog($"Engine path: {GetEngineScriptPath()}");
         AppendLog($"Preferred Python path: {GetPythonExecutablePath()}");
+        _ = RefreshPairingCodeAsync();
     }
 
     private void StartEngineButton_Click(object sender, RoutedEventArgs e)
@@ -49,9 +63,15 @@ public sealed partial class MainWindow : Window
         StopEngine();
     }
 
+    private async void RefreshPairingButton_Click(object sender, RoutedEventArgs e)
+    {
+        await RefreshPairingCodeAsync();
+    }
+
     private void MainWindow_Closed(object sender, WindowEventArgs args)
     {
         _statusTimer.Stop();
+        _pairingTimer.Stop();
         StopEngine();
     }
 
@@ -61,6 +81,11 @@ public sealed partial class MainWindow : Window
         {
             LastPacketText.Text = DateTime.Now.ToString("HH:mm:ss");
         }
+    }
+
+    private void PairingTimer_Tick(object? sender, object e)
+    {
+        UpdatePairingExpiryText();
     }
 
     private void StartEngine()
@@ -270,6 +295,90 @@ public sealed partial class MainWindow : Window
         _statusTimer.Stop();
     }
 
+    private async System.Threading.Tasks.Task RefreshPairingCodeAsync()
+    {
+        var token = GeneratePairingToken();
+        _pairingTokenExpiresAt = DateTimeOffset.UtcNow.Add(PairingTokenLifetime);
+        var localIp = GetLocalIpv4Address();
+        LocalIpText.Text = localIp;
+
+        var payload = new
+        {
+            version = 1,
+            type = "gyroplay_pairing",
+            host = localIp,
+            port = UdpPort,
+            pairing_token = token,
+            expires_at = _pairingTokenExpiresAt.ToString("O"),
+        };
+
+        var payloadJson = JsonSerializer.Serialize(payload);
+        await SetQrImageAsync(payloadJson);
+        WritePairingFile(token, _pairingTokenExpiresAt);
+        PairingTokenText.Text = token;
+        UpdatePairingExpiryText();
+        _pairingTimer.Start();
+        AppendLog($"Pairing code refreshed. Token expires at {_pairingTokenExpiresAt.LocalDateTime:HH:mm:ss}.");
+    }
+
+    private static string GeneratePairingToken()
+    {
+        Span<byte> bytes = stackalloc byte[4];
+        RandomNumberGenerator.Fill(bytes);
+        return Convert.ToHexString(bytes);
+    }
+
+    private async System.Threading.Tasks.Task SetQrImageAsync(string payloadJson)
+    {
+        using var generator = new QRCodeGenerator();
+        using var data = generator.CreateQrCode(payloadJson, QRCodeGenerator.ECCLevel.Q);
+        var qrCode = new PngByteQRCode(data);
+        var pngBytes = qrCode.GetGraphic(12);
+
+        var image = new BitmapImage();
+        using var stream = new InMemoryRandomAccessStream();
+        await stream.WriteAsync(pngBytes.AsBuffer());
+        stream.Seek(0);
+        await image.SetSourceAsync(stream);
+        PairingQrImage.Source = image;
+    }
+
+    private static void WritePairingFile(string token, DateTimeOffset expiresAt)
+    {
+        var pairingFilePath = GetPairingFilePath();
+        var pairingDirectory = Path.GetDirectoryName(pairingFilePath);
+
+        if (pairingDirectory is not null)
+        {
+            Directory.CreateDirectory(pairingDirectory);
+        }
+
+        var json = JsonSerializer.Serialize(
+            new
+            {
+                version = 1,
+                pairing_token = token,
+                expires_at = expiresAt.ToString("O"),
+            },
+            new JsonSerializerOptions { WriteIndented = true });
+
+        File.WriteAllText(pairingFilePath, json);
+    }
+
+    private void UpdatePairingExpiryText()
+    {
+        var remaining = _pairingTokenExpiresAt - DateTimeOffset.UtcNow;
+
+        if (remaining <= TimeSpan.Zero)
+        {
+            TokenExpiryText.Text = "Expired. Refresh pairing code.";
+            return;
+        }
+
+        TokenExpiryText.Text =
+            $"Expires: {_pairingTokenExpiresAt.LocalDateTime:HH:mm:ss} ({Math.Ceiling(remaining.TotalSeconds)}s)";
+    }
+
     private void AppendLog(string message)
     {
         var timestamp = DateTime.Now.ToString("HH:mm:ss");
@@ -288,6 +397,11 @@ public sealed partial class MainWindow : Window
     private static string GetEngineScriptPath()
     {
         return Path.Combine(GetRepositoryRoot(), "engine", "python", "main.py");
+    }
+
+    private static string GetPairingFilePath()
+    {
+        return Path.Combine(GetRepositoryRoot(), "engine", "python", "pairing.json");
     }
 
     private static string GetPythonExecutablePath()

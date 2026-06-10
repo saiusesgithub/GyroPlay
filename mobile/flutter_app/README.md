@@ -35,13 +35,15 @@ flutter run
 ## Test Tilt Steering
 
 1. Put the phone and PC on the same network.
-2. Enter the PC IPv4 address in the app.
-3. Tap `Connect`. The app shows `Connecting` until the engine replies with `hello_ack`.
-4. The controller screen runs in landscape orientation.
-5. Hold the phone like a steering wheel.
-6. Tap `Calibrate`.
-7. Rotate the phone left and right like a steering wheel.
-8. Watch the Python engine console and `joy.cpl` for changing controller state.
+2. In the desktop app, start the engine and display the pairing QR code.
+3. Tap `Scan QR Code` in the mobile app.
+4. The app fills the PC IP, UDP port, and pairing token, then starts connecting.
+5. The app shows `Connecting` until the engine replies with `hello_ack`.
+6. The controller screen runs in landscape orientation.
+7. Hold the phone like a steering wheel.
+8. Tap `Calibrate`.
+9. Rotate the phone left and right like a steering wheel.
+10. Watch the Python engine console and `joy.cpl` for changing controller state.
 
 About 45 degrees of left/right roll maps to full steering. A 3 degree center dead zone and smoothing are applied to reduce shake. Visible angle updates are capped so the number is readable.
 
@@ -78,7 +80,8 @@ The app sends `hello` first:
 {
   "version": 1,
   "type": "hello",
-  "device_name": "Android Phone"
+  "device_name": "Android Phone",
+  "pairing_token": "A1B2C3D4"
 }
 ```
 

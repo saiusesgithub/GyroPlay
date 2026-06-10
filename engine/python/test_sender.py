@@ -1,4 +1,5 @@
 import json
+import os
 import socket
 import time
 
@@ -8,6 +9,7 @@ PORT = 5005
 STEP_DELAY_SECONDS = 0.02
 STEPS_PER_MOVE = 100
 HEARTBEAT_INTERVAL_SECONDS = 1.0
+PAIRING_FILE = os.path.join(os.path.dirname(__file__), "pairing.json")
 
 
 def send_packet(udp_socket, packet):
@@ -15,10 +17,14 @@ def send_packet(udp_socket, packet):
 
 
 def connect(udp_socket):
+    with open(PAIRING_FILE, "r", encoding="utf-8") as file:
+        pairing_info = json.load(file)
+
     packet = {
         "version": 1,
         "type": "hello",
         "device_name": "Python Test Sender",
+        "pairing_token": pairing_info["pairing_token"],
     }
     send_packet(udp_socket, packet)
     udp_socket.settimeout(3.0)

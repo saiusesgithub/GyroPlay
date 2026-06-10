@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
 Future<void> main() async {
@@ -51,7 +52,7 @@ class GyroPlayHome extends StatefulWidget {
 
 class _GyroPlayHomeState extends State<GyroPlayHome>
     with WidgetsBindingObserver {
-  static const int _udpPort = 5005;
+  static const int _defaultUdpPort = 5005;
   static const double _fullSteeringTiltDegrees = 45.0;
   static const double _deadZoneDegrees = 3.0;
   static const double _smoothingAlpha = 0.12;
@@ -60,6 +61,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   static const Duration _uiTiltInterval = Duration(milliseconds: 40);
 
   final TextEditingController _ipController = TextEditingController();
+  final TextEditingController _pairingTokenController = TextEditingController();
   final Stopwatch _uiTiltStopwatch = Stopwatch()..start();
 
   RawDatagramSocket? _socket;
@@ -73,6 +75,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   SteeringMode _steeringMode = SteeringMode.tilt;
   String? _sessionId;
+  int _pcPort = _defaultUdpPort;
   double _manualLeftX = 0.0;
   double _steeringValue = 0.0;
   double _rawRollDegrees = 0.0;
@@ -107,6 +110,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     _accelerometerSubscription?.cancel();
     _socket?.close();
     _ipController.dispose();
+    _pairingTokenController.dispose();
     super.dispose();
   }
 
@@ -141,10 +145,16 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
 
   Future<void> _connect() async {
     final ipText = _ipController.text.trim();
+    final pairingToken = _pairingTokenController.text.trim();
     final address = InternetAddress.tryParse(ipText);
 
     if (address == null || address.type != InternetAddressType.IPv4) {
       _showSnackBar('Enter a valid PC IPv4 address.');
+      return;
+    }
+
+    if (pairingToken.isEmpty) {
+      _showSnackBar('Scan a QR code or enter a pairing token.');
       return;
     }
 
@@ -177,7 +187,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
 
         _markConnectionLost('Connection lost: no hello_ack received.');
       });
-      _showSnackBar('Connecting to ${address.address}:$_udpPort');
+      _showSnackBar('Connecting to ${address.address}:$_pcPort');
     } on SocketException catch (error) {
       if (!mounted) {
         return;
@@ -197,6 +207,76 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       });
       _showSnackBar('Connection failed: $error');
     }
+  }
+
+  Future<void> _scanQrCode() async {
+    final payload = await Navigator.of(
+      context,
+    ).push<String>(MaterialPageRoute(builder: (_) => const _QrScannerPage()));
+
+    if (!mounted || payload == null) {
+      return;
+    }
+
+    try {
+      final pairing = _parsePairingPayload(payload);
+      _ipController.text = pairing.host;
+      _pairingTokenController.text = pairing.pairingToken;
+
+      setState(() {
+        _pcPort = pairing.port;
+      });
+
+      await _connect();
+    } catch (error) {
+      _showSnackBar(error.toString());
+    }
+  }
+
+  _PairingPayload _parsePairingPayload(String payload) {
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('Invalid QR code.');
+    }
+
+    if (decoded['version'] != 1 || decoded['type'] != 'gyroplay_pairing') {
+      throw const FormatException('Not a GyroPlay pairing code.');
+    }
+
+    final host = decoded['host'];
+    final port = decoded['port'];
+    final pairingToken = decoded['pairing_token'];
+    final expiresAtText = decoded['expires_at'];
+
+    if (host is! String ||
+        InternetAddress.tryParse(host)?.type != InternetAddressType.IPv4) {
+      throw const FormatException('Pairing code has an invalid PC IP address.');
+    }
+
+    if (port is! int || port < 1 || port > 65535) {
+      throw const FormatException('Pairing code has an invalid UDP port.');
+    }
+
+    if (pairingToken is! String || pairingToken.isEmpty) {
+      throw const FormatException('Pairing code has an invalid token.');
+    }
+
+    if (expiresAtText is! String) {
+      throw const FormatException('Pairing code is missing expiry.');
+    }
+
+    final expiresAt = DateTime.tryParse(expiresAtText);
+    if (expiresAt == null) {
+      throw const FormatException('Pairing code has an invalid expiry.');
+    }
+
+    if (DateTime.now().toUtc().isAfter(expiresAt.toUtc())) {
+      throw const FormatException(
+        'Pairing code expired. Refresh it on the PC.',
+      );
+    }
+
+    return _PairingPayload(host: host, port: port, pairingToken: pairingToken);
   }
 
   void _disconnect() {
@@ -475,10 +555,11 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       'version': 1,
       'type': 'hello',
       'device_name': 'Android Phone',
+      'pairing_token': _pairingTokenController.text.trim(),
     });
 
     try {
-      socket.send(utf8.encode(packet), address, _udpPort);
+      socket.send(utf8.encode(packet), address, _pcPort);
     } on SocketException catch (error) {
       _markConnectionLost('Socket error: ${error.message}');
     } catch (error) {
@@ -502,7 +583,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     });
 
     try {
-      socket.send(utf8.encode(packet), address, _udpPort);
+      socket.send(utf8.encode(packet), address, _pcPort);
     } on SocketException catch (error) {
       _markConnectionLost('Socket error: ${error.message}');
     } catch (error) {
@@ -539,7 +620,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     });
 
     try {
-      socket.send(utf8.encode(packet), address, _udpPort);
+      socket.send(utf8.encode(packet), address, _pcPort);
     } on SocketException catch (error) {
       _markConnectionLost('Socket error: ${error.message}');
     } catch (error) {
@@ -595,6 +676,25 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
                         hintText: '192.168.1.20',
                         border: OutlineInputBorder(),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _pairingTokenController,
+                      enabled: !_isConnected && !_isConnecting,
+                      decoration: const InputDecoration(
+                        labelText: 'Pairing token',
+                        hintText: 'Scan QR or enter token',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('UDP port: $_pcPort'),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      onPressed: _isConnecting || _isConnected
+                          ? null
+                          : _scanQrCode,
+                      child: const Text('Scan QR Code'),
                     ),
                     const SizedBox(height: 10),
                     FilledButton(
@@ -834,6 +934,61 @@ class _HoldButton extends StatelessWidget {
         ),
         child: Text(label, style: Theme.of(context).textTheme.titleMedium),
       ),
+    );
+  }
+}
+
+class _PairingPayload {
+  const _PairingPayload({
+    required this.host,
+    required this.port,
+    required this.pairingToken,
+  });
+
+  final String host;
+  final int port;
+  final String pairingToken;
+}
+
+class _QrScannerPage extends StatefulWidget {
+  const _QrScannerPage();
+
+  @override
+  State<_QrScannerPage> createState() => _QrScannerPageState();
+}
+
+class _QrScannerPageState extends State<_QrScannerPage> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _completed = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleDetect(BarcodeCapture capture) {
+    if (_completed) {
+      return;
+    }
+
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue;
+      if (value == null || value.isEmpty) {
+        continue;
+      }
+
+      _completed = true;
+      Navigator.of(context).pop(value);
+      return;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scan GyroPlay QR')),
+      body: MobileScanner(controller: _controller, onDetect: _handleDetect),
     );
   }
 }
