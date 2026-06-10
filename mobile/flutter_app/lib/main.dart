@@ -438,8 +438,12 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   }
 
   void _calibrate() {
-    _calibratedRollDegrees = _rawRollDegrees;
-    _resetSteeringOnly();
+    setState(() {
+      _calibratedRollDegrees = _rawRollDegrees;
+      _currentTiltDegrees = 0.0;
+      _manualLeftX = 0.0;
+      _steeringValue = 0.0;
+    });
     _sendNeutralPacket();
     _showSnackBar('Tilt center calibrated.');
   }
@@ -495,17 +499,6 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       } else {
         _handbrake = isPressed;
       }
-    });
-  }
-
-  void _resetSteeringOnly() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _manualLeftX = 0.0;
-      _steeringValue = 0.0;
     });
   }
 
@@ -650,181 +643,203 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'GyroPlay',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _ipController,
-                      enabled: !_isConnected && !_isConnecting,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compactHeight = constraints.maxHeight < 430;
+            final pagePadding = compactHeight ? 10.0 : 16.0;
+            final columnGap = compactHeight ? 10.0 : 16.0;
+
+            return Padding(
+              padding: EdgeInsets.all(pagePadding),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            'GyroPlay',
+                            style: compactHeight
+                                ? Theme.of(context).textTheme.headlineSmall
+                                : Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          SizedBox(height: compactHeight ? 8 : 12),
+                          TextField(
+                            controller: _ipController,
+                            enabled: !_isConnected && !_isConnecting,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'PC IPv4 address',
+                              hintText: '192.168.1.20',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _pairingTokenController,
+                            enabled: !_isConnected && !_isConnecting,
+                            decoration: const InputDecoration(
+                              labelText: 'Pairing token',
+                              hintText: 'Scan QR or enter token',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('UDP port: $_pcPort'),
+                          const SizedBox(height: 8),
+                          OutlinedButton(
+                            onPressed: _isConnecting || _isConnected
+                                ? null
+                                : _scanQrCode,
+                            child: const Text('Scan QR Code'),
+                          ),
+                          const SizedBox(height: 8),
+                          FilledButton(
+                            onPressed: _isConnecting
+                                ? null
+                                : _isConnected
+                                ? _disconnect
+                                : _connect,
+                            child: Text(
+                              _isConnected ? 'Disconnect' : 'Connect',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SegmentedButton<SteeringMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: SteeringMode.tilt,
+                                label: Text('Tilt'),
+                              ),
+                              ButtonSegment(
+                                value: SteeringMode.manual,
+                                label: Text('Manual'),
+                              ),
+                            ],
+                            selected: {_steeringMode},
+                            onSelectionChanged: (selection) =>
+                                _setMode(selection.first),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                            title: const Text('Invert steering'),
+                            value: _invertSteering,
+                            onChanged: _setInvertSteering,
+                          ),
+                        ],
                       ),
-                      decoration: const InputDecoration(
-                        labelText: 'PC IPv4 address',
-                        hintText: '192.168.1.20',
-                        border: OutlineInputBorder(),
-                      ),
                     ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _pairingTokenController,
-                      enabled: !_isConnected && !_isConnecting,
-                      decoration: const InputDecoration(
-                        labelText: 'Pairing token',
-                        hintText: 'Scan QR or enter token',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('UDP port: $_pcPort'),
-                    const SizedBox(height: 10),
-                    OutlinedButton(
-                      onPressed: _isConnecting || _isConnected
-                          ? null
-                          : _scanQrCode,
-                      child: const Text('Scan QR Code'),
-                    ),
-                    const SizedBox(height: 10),
-                    FilledButton(
-                      onPressed: _isConnecting
-                          ? null
-                          : _isConnected
-                          ? _disconnect
-                          : _connect,
-                      child: Text(_isConnected ? 'Disconnect' : 'Connect'),
-                    ),
-                    const SizedBox(height: 10),
-                    SegmentedButton<SteeringMode>(
-                      segments: const [
-                        ButtonSegment(
-                          value: SteeringMode.tilt,
-                          label: Text('Tilt'),
+                  ),
+                  SizedBox(width: columnGap),
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          statusText,
+                          style: Theme.of(context).textTheme.titleLarge,
                         ),
-                        ButtonSegment(
-                          value: SteeringMode.manual,
-                          label: Text('Manual'),
+                        Text(sensorText),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Roll: ${_currentTiltDegrees.toStringAsFixed(1)} deg',
+                        ),
+                        Text(
+                          'Steering: ${_steeringValue.toStringAsFixed(2)}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton(
+                          onPressed: _sensorActive ? _calibrate : null,
+                          child: const Text('Calibrate'),
+                        ),
+                        if (_steeringMode == SteeringMode.manual)
+                          Slider(
+                            value: _manualLeftX,
+                            min: -1.0,
+                            max: 1.0,
+                            divisions: 200,
+                            label: _manualLeftX.toStringAsFixed(2),
+                            onChanged: _onManualSteeringChanged,
+                          )
+                        else
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: compactHeight ? 8 : 16,
+                            ),
+                            child: LinearProgressIndicator(
+                              value: (_steeringValue + 1.0) / 2.0,
+                              minHeight: 12,
+                            ),
+                          ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _HoldButton(
+                                label: 'Gear down',
+                                isPressed: _gearDown,
+                                onChanged: (pressed) =>
+                                    _setButton('gear_down', pressed),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _HoldButton(
+                                label: 'Gear up',
+                                isPressed: _gearUp,
+                                onChanged: (pressed) =>
+                                    _setButton('gear_up', pressed),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        _HoldButton(
+                          label: 'Handbrake',
+                          isPressed: _handbrake,
+                          onChanged: (pressed) =>
+                              _setButton('handbrake', pressed),
                         ),
                       ],
-                      selected: {_steeringMode},
-                      onSelectionChanged: (selection) =>
-                          _setMode(selection.first),
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
-                      title: const Text('Invert steering'),
-                      value: _invertSteering,
-                      onChanged: _setInvertSteering,
-                    ),
-                    OutlinedButton(
-                      onPressed: _sensorActive ? _calibrate : null,
-                      child: const Text('Calibrate'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      statusText,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    Text(sensorText),
-                    const SizedBox(height: 12),
-                    Text('Roll: ${_currentTiltDegrees.toStringAsFixed(1)} deg'),
-                    Text(
-                      'Steering: ${_steeringValue.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    if (_steeringMode == SteeringMode.manual)
-                      Slider(
-                        value: _manualLeftX,
-                        min: -1.0,
-                        max: 1.0,
-                        divisions: 200,
-                        label: _manualLeftX.toStringAsFixed(2),
-                        onChanged: _onManualSteeringChanged,
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16),
-                        child: LinearProgressIndicator(
-                          value: (_steeringValue + 1.0) / 2.0,
-                          minHeight: 12,
-                        ),
-                      ),
-                    const Spacer(),
-                    Row(
+                  ),
+                  SizedBox(width: columnGap),
+                  Expanded(
+                    flex: 4,
+                    child: Row(
                       children: [
                         Expanded(
-                          child: _HoldButton(
-                            label: 'Gear down',
-                            isPressed: _gearDown,
-                            onChanged: (pressed) =>
-                                _setButton('gear_down', pressed),
+                          child: _Pedal(
+                            label: 'Brake',
+                            value: _brake,
+                            onChanged: (value) =>
+                                _setPedalValue('brake', value),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: _HoldButton(
-                            label: 'Gear up',
-                            isPressed: _gearUp,
-                            onChanged: (pressed) =>
-                                _setButton('gear_up', pressed),
+                          child: _Pedal(
+                            label: 'Throttle',
+                            value: _throttle,
+                            onChanged: (value) =>
+                                _setPedalValue('throttle', value),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    _HoldButton(
-                      label: 'Handbrake',
-                      isPressed: _handbrake,
-                      onChanged: (pressed) => _setButton('handbrake', pressed),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                flex: 4,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Pedal(
-                        label: 'Brake',
-                        value: _brake,
-                        onChanged: (value) => _setPedalValue('brake', value),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _Pedal(
-                        label: 'Throttle',
-                        value: _throttle,
-                        onChanged: (value) => _setPedalValue('throttle', value),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
