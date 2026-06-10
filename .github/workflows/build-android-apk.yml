@@ -17,6 +17,10 @@ on:
 
   workflow_dispatch:
 
+concurrency:
+  group: gyroplay-android-apk
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     name: Build ARM64 APK
@@ -35,12 +39,17 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            mobile/flutter_app/android/*.gradle*
+            mobile/flutter_app/android/**/gradle-wrapper.properties
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
+          pub-cache: true
 
       - name: Show Flutter version
         run: flutter --version
