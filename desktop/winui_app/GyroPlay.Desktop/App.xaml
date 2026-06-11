@@ -10,7 +10,18 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- Other merged dictionaries here -->
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
+            <Color x:Key="GyroPlayAccentColor">#7FD7F2</Color>
+            <SolidColorBrush x:Key="GyroPlayAccentBrush" Color="{StaticResource GyroPlayAccentColor}" />
+            <SolidColorBrush x:Key="CardBackgroundBrush" Color="#1B1F27" />
+            <SolidColorBrush x:Key="CardBorderBrush" Color="#303642" />
+            <SolidColorBrush x:Key="MutedTextBrush" Color="#A8B0BF" />
+            <Style x:Key="CardBorderStyle" TargetType="Border">
+                <Setter Property="Padding" Value="20" />
+                <Setter Property="Background" Value="{StaticResource CardBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource CardBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="12" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

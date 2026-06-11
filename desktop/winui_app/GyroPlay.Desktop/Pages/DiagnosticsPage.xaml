@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="GyroPlay.Desktop.Pages.DiagnosticsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer>
+        <StackPanel Padding="32" Spacing="18">
+            <StackPanel Spacing="6">
+                <TextBlock FontSize="32" FontWeight="SemiBold" Text="Setup &amp; Diagnostics" />
+                <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Check the desktop bridge, driver, firewall, and pairing storage." />
+            </StackPanel>
+
+            <Grid ColumnSpacing="16" RowSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Driver status" />
+                        <TextBlock x:Name="DriverStatusText" Text="Checking..." />
+                        <TextBlock x:Name="DriverDetailsText" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                        <Button Click="RepairDriverButton_Click" Content="Repair driver..." />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Firewall status" />
+                        <TextBlock x:Name="FirewallStatusText" Text="Checking..." />
+                        <TextBlock x:Name="FirewallDetailsText" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                        <Button Click="RepairFirewallButton_Click" Content="Repair firewall rule..." />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Engine executable" />
+                        <TextBlock x:Name="EngineStatusText" Text="Checking..." />
+                        <TextBlock x:Name="EngineDetailsText" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock FontSize="18" FontWeight="SemiBold" Text="Pairing storage" />
+                        <TextBlock x:Name="StorageStatusText" Text="Checking..." />
+                        <TextBlock x:Name="StorageDetailsText" Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Click="RefreshChecksButton_Click" Content="Run Checks Again" />
+                <Button Click="OpenTroubleshootingButton_Click" Content="Open troubleshooting" />
+            </StackPanel>
+
+            <Expander Header="Advanced logs">
+                <TextBox
+                    x:Name="AdvancedLogTextBox"
+                    MinHeight="220"
+                    AcceptsReturn="True"
+                    FontFamily="Consolas"
+                    FontSize="13"
+                    IsReadOnly="True"
+                    TextWrapping="NoWrap"
+                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto" />
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
