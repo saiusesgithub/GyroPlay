@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:flutter_app/main.dart';
+import 'package:flutter_app/services/app_state.dart';
 
 void main() {
   testWidgets('renders GyroPlay tilt controller screen', (
@@ -13,18 +14,14 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const GyroPlayApp());
+    final appState = AppState();
+    addTearDown(appState.dispose);
+
+    await tester.pumpWidget(GyroPlayApp(appState: appState));
 
     expect(find.text('GyroPlay'), findsOneWidget);
-    expect(find.text('PC IPv4 address'), findsOneWidget);
-    expect(find.text('Connect'), findsOneWidget);
-    expect(find.text('Tilt'), findsOneWidget);
-    expect(find.text('Manual'), findsOneWidget);
-    expect(find.text('Calibrate'), findsOneWidget);
-    expect(find.text('Throttle'), findsOneWidget);
-    expect(find.text('Brake'), findsOneWidget);
-    expect(find.text('Gear up'), findsOneWidget);
-    expect(find.text('Gear down'), findsOneWidget);
-    expect(find.text('Handbrake'), findsOneWidget);
+    expect(find.text('Pair a PC'), findsOneWidget);
+    expect(find.text('Active profile'), findsOneWidget);
+    expect(find.text('Assetto Corsa'), findsOneWidget);
   });
 }
