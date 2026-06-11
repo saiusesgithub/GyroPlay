@@ -128,8 +128,17 @@ jobs:
           Write-Host "Installing patched vgamepad source without build isolation..."
           & $python -m pip install --no-build-isolation $tempPath
 
-          Write-Host "Verifying vgamepad import..."
-          & $python -c "import vgamepad; print('vgamepad import successful')"
+          Write-Host "Verifying vgamepad package installation without importing it..."
+          & $python -m pip show vgamepad
+          if ($LASTEXITCODE -ne 0) {
+            throw "vgamepad package was not installed successfully."
+          }
+
+          $sitePackages = & $python -c "import site; print(site.getsitepackages()[0])"
+          $vgamepadPath = Join-Path $sitePackages.Trim() "vgamepad"
+          if (-not (Test-Path $vgamepadPath)) {
+            throw "Installed vgamepad package directory was not found."
+          }
 
           Write-Host "Installing remaining runtime requirements without reinstalling vgamepad..."
           $filteredRequirements = "requirements-ci.txt"
