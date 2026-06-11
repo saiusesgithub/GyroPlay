@@ -26,7 +26,9 @@ VersionInfoCompany={#Publisher}
 VersionInfoDescription=GyroPlay Setup
 VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
-SetupIconFile={#BuildDir}\gyroplay.ico
+SetupIconFile=assets\GyroPlay.ico
+WizardImageFile=assets\WizardImage.png
+WizardSmallImageFile=assets\WizardSmallImage.png
 DefaultDirName={autopf}\GyroPlay
 DefaultGroupName=GyroPlay
 DisableProgramGroupPage=yes
@@ -43,7 +45,7 @@ MinVersion=10.0.17763
 CloseApplications=yes
 RestartApplications=no
 UninstallDisplayName={#AppName}
-UninstallDisplayIcon={app}\{#AppExeName}
+UninstallDisplayIcon={app}\Assets\GyroPlay.ico
 SetupLogging=yes
 
 [Languages]
@@ -66,8 +68,8 @@ Source: "..\docs\troubleshooting.md"; DestDir: "{app}\docs"; Flags: ignoreversio
 Source: "dependencies\{#DriverInstallerName}"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
-Name: "{group}\GyroPlay"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"
-Name: "{autodesktop}\GyroPlay"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\GyroPlay"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\Assets\GyroPlay.ico"
+Name: "{autodesktop}\GyroPlay"; Filename: "{app}\{#AppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\Assets\GyroPlay.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "Launch GyroPlay"; Flags: nowait postinstall skipifsilent; Check: CanLaunchAfterSetup

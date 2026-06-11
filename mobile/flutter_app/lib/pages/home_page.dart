@@ -28,6 +28,20 @@ class HomePage extends StatelessWidget {
       title: 'GyroPlay',
       subtitle: 'Use your phone as a racing controller for your PC.',
       children: [
+        const AppCard(
+          child: Row(
+            children: [
+              BrandIcon(size: 58),
+              SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  'Local wireless control for sim racing.',
+                  style: TextStyle(fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

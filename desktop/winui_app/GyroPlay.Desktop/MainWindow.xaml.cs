@@ -5,6 +5,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using WinRT.Interop;
 
@@ -21,6 +22,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
         AppServices.Initialize(_dispatcherQueue);
+        SetWindowIcon();
 
         Closed += MainWindow_Closed;
         AppWindow.Closing += MainWindow_AppWindowClosing;
@@ -88,6 +90,15 @@ public sealed partial class MainWindow : Window
         AppServices.Engine.Stop();
         AppServices.Engine.Dispose();
         AppServices.Tray.Dispose();
+    }
+
+    private void SetWindowIcon()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "GyroPlay.ico");
+        if (File.Exists(iconPath))
+        {
+            AppWindow.SetIcon(iconPath);
+        }
     }
 
     private void MainWindow_AppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)

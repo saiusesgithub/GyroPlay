@@ -47,19 +47,7 @@ class _AboutPageState extends State<AboutPage> {
         AppCard(
           child: Column(
             children: [
-              Container(
-                width: 84,
-                height: 84,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(24),
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                ),
-                child: Icon(
-                  Icons.screen_rotation_alt,
-                  size: 44,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-              ),
+              const BrandIcon(size: 92),
               const SizedBox(height: 16),
               Text('GyroPlay', style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 4),

@@ -306,11 +306,7 @@ class _SteeringPanel extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.screen_rotation_alt,
-            size: 44,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          const BrandIcon(size: 48),
           const SizedBox(height: 12),
           Text('Tilt Steering', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),

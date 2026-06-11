@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 using Windows.ApplicationModel.DataTransfer;
 
@@ -19,6 +20,9 @@ public sealed class TrayService : IDisposable
     private const uint MfString = 0x00000000;
     private const uint MfSeparator = 0x00000800;
     private const uint TpmReturNcmd = 0x0100;
+    private const int ImageIcon = 1;
+    private const int LrLoadFromFile = 0x00000010;
+    private const int LrDefaultSize = 0x00000040;
     private const int IdOpen = 1001;
     private const int IdStart = 1002;
     private const int IdStop = 1003;
@@ -27,6 +31,8 @@ public sealed class TrayService : IDisposable
 
     private readonly WndProc _wndProc;
     private nint _windowHandle;
+    private nint _trayIconHandle;
+    private AppPaths? _paths;
     private bool _created;
     private EngineService _engine = new();
 
@@ -40,6 +46,7 @@ public sealed class TrayService : IDisposable
 
     public void Initialize(AppPaths paths, EngineService engine, NotificationService notifications)
     {
+        _paths = paths;
         _engine = engine;
         notifications.AttachTray(this);
     }
@@ -76,9 +83,30 @@ public sealed class TrayService : IDisposable
             uID = 1,
             uFlags = NifMessage | NifIcon | NifTip,
             uCallbackMessage = TrayMessage,
-            hIcon = LoadIcon(nint.Zero, new IntPtr(32512)),
+            hIcon = GetTrayIconHandle(),
             szTip = "GyroPlay",
         };
+    }
+
+    private nint GetTrayIconHandle()
+    {
+        if (_trayIconHandle != nint.Zero)
+        {
+            return _trayIconHandle;
+        }
+
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "GyroPlay.ico");
+        if (File.Exists(iconPath))
+        {
+            _trayIconHandle = LoadImage(nint.Zero, iconPath, ImageIcon, 16, 16, LrLoadFromFile);
+        }
+
+        if (_trayIconHandle == nint.Zero)
+        {
+            _trayIconHandle = LoadIcon(nint.Zero, new IntPtr(32512));
+        }
+
+        return _trayIconHandle;
     }
 
     private void CreateMessageWindow()
@@ -171,6 +199,11 @@ public sealed class TrayService : IDisposable
             DestroyWindow(_windowHandle);
             _windowHandle = nint.Zero;
         }
+        if (_trayIconHandle != nint.Zero)
+        {
+            DestroyIcon(_trayIconHandle);
+            _trayIconHandle = nint.Zero;
+        }
         _created = false;
     }
 
@@ -235,6 +268,12 @@ public sealed class TrayService : IDisposable
 
     [DllImport("user32.dll")]
     private static extern nint LoadIcon(nint hInstance, nint lpIconName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern nint LoadImage(nint hInst, string name, int type, int cx, int cy, int fuLoad);
+
+    [DllImport("user32.dll")]
+    private static extern bool DestroyIcon(nint hIcon);
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
     private static extern bool Shell_NotifyIcon(int dwMessage, ref NotifyIconData lpData);

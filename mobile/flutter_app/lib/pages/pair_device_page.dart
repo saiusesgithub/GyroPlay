@@ -46,11 +46,7 @@ class PairDevicePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.qr_code_scanner,
-                size: 56,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              const BrandIcon(size: 64),
               const SizedBox(height: 12),
               Text(
                 'Scan the QR code shown in GyroPlay Desktop.',

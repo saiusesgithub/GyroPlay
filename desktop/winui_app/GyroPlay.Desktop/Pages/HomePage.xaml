@@ -11,14 +11,21 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <StackPanel Spacing="6">
-                <TextBlock
-                    FontSize="36"
-                    FontWeight="SemiBold"
-                    Text="GyroPlay" />
-                <TextBlock
-                    Foreground="{StaticResource MutedTextBrush}"
-                    Text="Mobile tilt and touch controls for Windows racing games." />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+                <Image
+                    Width="56"
+                    Height="56"
+                    Source="ms-appx:///Assets/Square150x150Logo.png"
+                    Stretch="Uniform" />
+                <StackPanel Spacing="6">
+                    <TextBlock
+                        FontSize="36"
+                        FontWeight="SemiBold"
+                        Text="GyroPlay" />
+                    <TextBlock
+                        Foreground="{StaticResource MutedTextBrush}"
+                        Text="Mobile tilt and touch controls for Windows racing games." />
+                </StackPanel>
             </StackPanel>
 
             <Grid Grid.Row="1" ColumnSpacing="16">

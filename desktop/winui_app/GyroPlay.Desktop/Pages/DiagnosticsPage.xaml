@@ -5,10 +5,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer>
         <StackPanel Padding="32" Spacing="18">
-            <StackPanel Spacing="6">
-                <TextBlock FontSize="32" FontWeight="SemiBold" Text="Setup &amp; Diagnostics" />
-                <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Check the desktop bridge, driver, firewall, and pairing storage." />
-                <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedTextBrush}" />
+            <StackPanel Orientation="Horizontal" Spacing="14">
+                <Image
+                    Width="44"
+                    Height="44"
+                    Source="ms-appx:///Assets/Square44x44Logo.png"
+                    Stretch="Uniform" />
+                <StackPanel Spacing="6">
+                    <TextBlock FontSize="32" FontWeight="SemiBold" Text="Setup &amp; Diagnostics" />
+                    <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Check the desktop bridge, driver, firewall, and pairing storage." />
+                    <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedTextBrush}" />
+                </StackPanel>
             </StackPanel>
 
             <Grid ColumnSpacing="16" RowSpacing="16">

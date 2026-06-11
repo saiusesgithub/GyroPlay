@@ -17,8 +17,11 @@ $engineBuildScript = Join-Path $engineDir "build-engine.ps1"
 $issFile = Join-Path $PSScriptRoot "gyroplay.iss"
 $driverInstaller = Join-Path $PSScriptRoot "dependencies\ViGEmBus_1.22.0_x64_x86_arm64.exe"
 $troubleshootingDoc = Join-Path $repoRoot "docs\troubleshooting.md"
-$appLogoPng = Join-Path $repoRoot "desktop\winui_app\GyroPlay.Desktop\Assets\Square44x44Logo.scale-200.png"
-$setupIcon = Join-Path $installerBuild "gyroplay.ico"
+$brandSourceIcon = Join-Path $repoRoot "gyroplay-icon.png"
+$brandGenerator = Join-Path $repoRoot "tools\generate-brand-assets.ps1"
+$installerIcon = Join-Path $PSScriptRoot "assets\GyroPlay.ico"
+$installerWizardImage = Join-Path $PSScriptRoot "assets\WizardImage.png"
+$installerWizardSmallImage = Join-Path $PSScriptRoot "assets\WizardSmallImage.png"
 $outputDir = Join-Path $PSScriptRoot "output"
 
 function Write-Step {
@@ -72,49 +75,6 @@ function Get-DesktopVersion {
     return $version.Trim()
 }
 
-function Convert-PngToSingleImageIcon {
-    param(
-        [string]$PngPath,
-        [string]$IconPath
-    )
-
-    $pngBytes = [System.IO.File]::ReadAllBytes($PngPath)
-    if ($pngBytes.Length -lt 33) {
-        throw "Logo PNG is too small to convert into an installer icon: $PngPath"
-    }
-
-    $width = ($pngBytes[16] -shl 24) -bor ($pngBytes[17] -shl 16) -bor ($pngBytes[18] -shl 8) -bor $pngBytes[19]
-    $height = ($pngBytes[20] -shl 24) -bor ($pngBytes[21] -shl 16) -bor ($pngBytes[22] -shl 8) -bor $pngBytes[23]
-
-    $widthByte = if ($width -ge 256) { 0 } else { [byte]$width }
-    $heightByte = if ($height -ge 256) { 0 } else { [byte]$height }
-
-    $stream = [System.IO.File]::Create($IconPath)
-    try {
-        $writer = New-Object System.IO.BinaryWriter($stream)
-        $writer.Write([UInt16]0)
-        $writer.Write([UInt16]1)
-        $writer.Write([UInt16]1)
-        $writer.Write([byte]$widthByte)
-        $writer.Write([byte]$heightByte)
-        $writer.Write([byte]0)
-        $writer.Write([byte]0)
-        $writer.Write([UInt16]1)
-        $writer.Write([UInt16]32)
-        $writer.Write([UInt32]$pngBytes.Length)
-        $writer.Write([UInt32]22)
-        $writer.Write($pngBytes)
-    }
-    finally {
-        if ($writer) {
-            $writer.Dispose()
-        }
-        else {
-            $stream.Dispose()
-        }
-    }
-}
-
 $appVersion = Get-DesktopVersion
 $outputExe = Join-Path $outputDir "GyroPlaySetup-$appVersion.exe"
 
@@ -124,7 +84,8 @@ Assert-File -Path $issFile -Message "The Inno Setup script could not be found."
 Assert-File -Path $driverInstaller -Message "The ViGEmBus dependency payload is required for setup and repair."
 Assert-File -Path $troubleshootingDoc -Message "The local troubleshooting document is required for installed diagnostics."
 Assert-File -Path $engineBuildScript -Message "The engine build script could not be found."
-Assert-File -Path $appLogoPng -Message "The desktop app logo is required to generate the installer icon."
+Assert-File -Path $brandSourceIcon -Message "The root GyroPlay brand icon is required to generate installer and app assets."
+Assert-File -Path $brandGenerator -Message "The brand asset generator script could not be found."
 
 Write-Step "Cleaning stale installer output"
 if (Test-Path -LiteralPath $installerBuild) {
@@ -135,9 +96,11 @@ if (Test-Path -LiteralPath $outputDir) {
 }
 New-Item -ItemType Directory -Path $desktopPublish, $engineStage, $outputDir | Out-Null
 
-Write-Step "Generating installer branding icon"
-Convert-PngToSingleImageIcon -PngPath $appLogoPng -IconPath $setupIcon
-Assert-File -Path $setupIcon -Message "Installer icon generation failed."
+Write-Step "Generating branding assets from root icon"
+& $brandGenerator
+Assert-File -Path $installerIcon -Message "Installer icon generation failed."
+Assert-File -Path $installerWizardImage -Message "Installer wizard image generation failed."
+Assert-File -Path $installerWizardSmallImage -Message "Installer small wizard image generation failed."
 
 Write-Step "Building packaged controller engine"
 Assert-File -Path $enginePython -Message "Missing engine Python virtual environment. Create engine\python\.venv and install engine build dependencies."

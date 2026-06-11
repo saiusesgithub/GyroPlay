@@ -9,16 +9,11 @@
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             Spacing="18">
-            <Border
-                Width="72"
-                Height="72"
-                Background="{StaticResource GyroPlayAccentBrush}"
-                CornerRadius="18">
-                <FontIcon
-                    FontSize="34"
-                    Foreground="#101318"
-                    Glyph="&#xE7FC;" />
-            </Border>
+            <Image
+                Width="78"
+                Height="78"
+                Source="ms-appx:///Assets/Square150x150Logo.png"
+                Stretch="Uniform" />
             <TextBlock
                 FontSize="40"
                 FontWeight="SemiBold"

@@ -34,6 +34,24 @@ class PageScaffold extends StatelessWidget {
   }
 }
 
+class BrandIcon extends StatelessWidget {
+  const BrandIcon({super.key, this.size = 56});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/branding/gyroplay-icon.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      semanticLabel: 'GyroPlay logo',
+      filterQuality: FilterQuality.high,
+    );
+  }
+}
+
 class AppCard extends StatelessWidget {
   const AppCard({super.key, required this.child, this.padding});
 

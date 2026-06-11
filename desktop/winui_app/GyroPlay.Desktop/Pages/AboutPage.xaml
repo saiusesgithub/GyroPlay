@@ -7,9 +7,12 @@
         <StackPanel Padding="32" Spacing="18">
             <Border Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="14">
-                    <Border Width="88" Height="88" Background="{StaticResource GyroPlayAccentBrush}" CornerRadius="22">
-                        <FontIcon FontSize="42" Foreground="#101318" Glyph="&#xE7FC;" />
-                    </Border>
+                    <Image
+                        Width="96"
+                        Height="96"
+                        HorizontalAlignment="Left"
+                        Source="ms-appx:///Assets/Square150x150Logo.png"
+                        Stretch="Uniform" />
                     <TextBlock FontSize="34" FontWeight="SemiBold" Text="GyroPlay" />
                     <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedTextBrush}" />
                     <TextBlock TextWrapping="Wrap" Text="GyroPlay is an open-source mobile-to-PC controller bridge for racing games. It pairs an Android phone with a Windows virtual Xbox controller through a local UDP engine." />
