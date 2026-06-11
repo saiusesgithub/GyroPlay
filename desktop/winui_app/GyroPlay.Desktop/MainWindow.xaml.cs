@@ -48,9 +48,9 @@ public sealed partial class MainWindow : Window
 
         LocalIpText.Text = GetLocalIpv4Address();
         AppendLog("GyroPlay desktop control panel ready.");
-        AppendLog($"Packaged engine path: {GetPackagedEnginePath()}");
-        AppendLog($"Engine path: {GetEngineScriptPath()}");
-        AppendLog($"Development Python path: {GetPythonExecutablePath()}");
+        AppendLog($"Application base directory: {AppContext.BaseDirectory}");
+        AppendLog($"Resolved packaged engine path: {GetInstalledPackagedEnginePath()}");
+        AppendLog($"Development fallback enabled: {IsDevelopmentFallbackAvailable()}");
         _ = RefreshPairingCodeAsync();
     }
 
@@ -101,13 +101,20 @@ public sealed partial class MainWindow : Window
         if (launchInfo is null)
         {
             SetEngineStopped();
-            AppendLog($"Error: packaged engine not found at {GetPackagedEnginePath()}");
-            AppendLog($"Error: development Python not found at {GetPythonExecutablePath()}");
-            AppendLog("Build the packaged engine or create the development virtual environment:");
-            AppendLog(@"  cd engine\python");
-            AppendLog(@"  python -m venv .venv");
-            AppendLog(@"  .\.venv\Scripts\Activate.ps1");
-            AppendLog(@"  python -m pip install -r requirements.txt");
+            AppendLog($"Error: packaged engine not found at {GetInstalledPackagedEnginePath()}");
+
+            var repositoryRoot = TryGetRepositoryRoot();
+            if (repositoryRoot is not null)
+            {
+                AppendLog($"Error: development packaged engine not found at {GetDevelopmentPackagedEnginePath(repositoryRoot)}");
+                AppendLog($"Error: development Python not found at {GetPythonExecutablePath(repositoryRoot)}");
+                AppendLog("Development fallback is available, but the packaged engine and Python virtual environment are missing.");
+            }
+            else
+            {
+                AppendLog("Error: installed engine is missing. Reinstall GyroPlay or repair the installation.");
+            }
+
             return;
         }
 
@@ -153,7 +160,7 @@ public sealed partial class MainWindow : Window
             _statusTimer.Start();
             if (launchInfo.IsDevelopmentFallback)
             {
-                AppendLog("Development fallback mode: packaged engine not found; using Python virtual environment.");
+                AppendLog("Development fallback mode: using repository-relative engine paths.");
             }
             AppendLog($"Launching engine executable: {launchInfo.ExecutablePath}");
             AppendLog($"Started engine process PID {process.Id}.");
@@ -384,46 +391,90 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private static string GetEngineScriptPath()
+    private static string GetEngineScriptPath(string repositoryRoot)
     {
-        return Path.Combine(GetRepositoryRoot(), "engine", "python", "main.py");
+        return Path.Combine(repositoryRoot, "engine", "python", "main.py");
     }
 
-    private static string GetPackagedEnginePath()
+    private static string GetInstalledEngineDirectory()
     {
-        return Path.Combine(GetRepositoryRoot(), "engine", "python", "dist", "GyroPlay.Engine.exe");
+        return Path.Combine(AppContext.BaseDirectory, "engine");
+    }
+
+    private static string GetInstalledPackagedEnginePath()
+    {
+        return Path.Combine(AppContext.BaseDirectory, "engine", "GyroPlay.Engine.exe");
+    }
+
+    private static string GetDevelopmentPackagedEnginePath(string repositoryRoot)
+    {
+        return Path.Combine(repositoryRoot, "engine", "python", "dist", "GyroPlay.Engine.exe");
     }
 
     private static string GetPairingFilePath()
     {
-        return Path.Combine(GetRepositoryRoot(), "engine", "python", "pairing.json");
+        var installedEnginePath = GetInstalledPackagedEnginePath();
+        if (File.Exists(installedEnginePath))
+        {
+            return Path.Combine(GetInstalledEngineDirectory(), "pairing.json");
+        }
+
+        var repositoryRoot = TryGetRepositoryRoot();
+        if (repositoryRoot is not null)
+        {
+            return Path.Combine(repositoryRoot, "engine", "python", "pairing.json");
+        }
+
+        return Path.Combine(GetInstalledEngineDirectory(), "pairing.json");
     }
 
-    private static string GetPythonExecutablePath()
+    private static string GetPythonExecutablePath(string repositoryRoot)
     {
-        return Path.Combine(GetRepositoryRoot(), "engine", "python", ".venv", "Scripts", "python.exe");
+        return Path.Combine(repositoryRoot, "engine", "python", ".venv", "Scripts", "python.exe");
     }
 
     private static EngineLaunchInfo? ResolveEngineLaunchInfo()
     {
-        var packagedEnginePath = GetPackagedEnginePath();
-        if (File.Exists(packagedEnginePath))
+        var installedEnginePath = GetInstalledPackagedEnginePath();
+        if (File.Exists(installedEnginePath))
         {
-            var packagedWorkingDirectory = Path.GetDirectoryName(packagedEnginePath);
+            var packagedWorkingDirectory = Path.GetDirectoryName(installedEnginePath);
             if (packagedWorkingDirectory is null)
             {
                 return null;
             }
 
             return new EngineLaunchInfo(
-                packagedEnginePath,
+                installedEnginePath,
                 string.Empty,
                 packagedWorkingDirectory,
                 IsDevelopmentFallback: false);
         }
 
-        var pythonExecutablePath = GetPythonExecutablePath();
-        var engineScriptPath = GetEngineScriptPath();
+        var repositoryRoot = TryGetRepositoryRoot();
+        if (repositoryRoot is null)
+        {
+            return null;
+        }
+
+        var developmentPackagedEnginePath = GetDevelopmentPackagedEnginePath(repositoryRoot);
+        if (File.Exists(developmentPackagedEnginePath))
+        {
+            var packagedWorkingDirectory = Path.GetDirectoryName(developmentPackagedEnginePath);
+            if (packagedWorkingDirectory is null)
+            {
+                return null;
+            }
+
+            return new EngineLaunchInfo(
+                developmentPackagedEnginePath,
+                string.Empty,
+                packagedWorkingDirectory,
+                IsDevelopmentFallback: true);
+        }
+
+        var pythonExecutablePath = GetPythonExecutablePath(repositoryRoot);
+        var engineScriptPath = GetEngineScriptPath(repositoryRoot);
         if (File.Exists(pythonExecutablePath) && File.Exists(engineScriptPath))
         {
             var engineWorkingDirectory = Path.GetDirectoryName(engineScriptPath);
@@ -448,7 +499,12 @@ public sealed partial class MainWindow : Window
         string WorkingDirectory,
         bool IsDevelopmentFallback);
 
-    private static string GetRepositoryRoot()
+    private static bool IsDevelopmentFallbackAvailable()
+    {
+        return TryGetRepositoryRoot() is not null;
+    }
+
+    private static string? TryGetRepositoryRoot()
     {
         var projectDirectory = AppContext.BaseDirectory;
 
@@ -463,7 +519,7 @@ public sealed partial class MainWindow : Window
             }
         }
 
-        return Path.GetFullPath(Path.Combine(projectDirectory, "..", "..", "..", "..", "..", ".."));
+        return null;
     }
 
     private static string GetLocalIpv4Address()
