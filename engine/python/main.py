@@ -229,6 +229,10 @@ def send_hello_ack(udp_socket, address, session_id):
     udp_socket.sendto(json.dumps(packet).encode("utf-8"), address)
 
 
+def print_event(message):
+    print(message, flush=True)
+
+
 def main():
     args = parse_arguments()
     pairing_file = os.path.abspath(args.pairing_file)
@@ -263,6 +267,7 @@ def main():
     session_address = None
     session_id = None
     last_session_packet_time = None
+    last_packet_event_time = 0.0
     disconnected_reported = False
 
     try:
@@ -279,6 +284,7 @@ def main():
                     and not disconnected_reported
                 ):
                     print("Phone disconnected: no heartbeat/input for 3 seconds. Neutralizing controller.")
+                    print_event("EVENT:PHONE_DISCONNECTED")
                     send_neutral_state(gamepad)
                     session_address = None
                     session_id = None
@@ -305,9 +311,11 @@ def main():
                 session_address = address
                 session_id = uuid.uuid4().hex
                 last_session_packet_time = time.monotonic()
+                last_packet_event_time = 0.0
                 disconnected_reported = False
                 send_neutral_state(gamepad)
                 send_hello_ack(udp_socket, address, session_id)
+                print_event("EVENT:PHONE_CONNECTED")
                 print(f"Phone connected: {device_name} from {address[0]}:{address[1]}")
                 print(f"Session started: {session_id}")
                 continue
@@ -342,7 +350,12 @@ def main():
                     continue
 
                 apply_controller_state(gamepad, state)
-                last_session_packet_time = time.monotonic()
+                now = time.monotonic()
+                last_session_packet_time = now
+                if now - last_packet_event_time >= 1.0:
+                    timestamp = datetime.now(timezone.utc).isoformat()
+                    print_event(f"EVENT:PACKET_RECEIVED:{timestamp}")
+                    last_packet_event_time = now
                 disconnected_reported = False
                 continue
 

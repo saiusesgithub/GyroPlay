@@ -79,10 +79,6 @@ public sealed partial class MainWindow : Window
 
     private void StatusTimer_Tick(object? sender, object e)
     {
-        if (EngineStatusText.Text == "Running" && PhoneStatusText.Text == "Connected")
-        {
-            LastPacketText.Text = DateTime.Now.ToString("HH:mm:ss");
-        }
     }
 
     private void PairingTimer_Tick(object? sender, object e)
@@ -229,8 +225,10 @@ public sealed partial class MainWindow : Window
 
         RunOnUiThread(() =>
         {
-            AppendLog(e.Data);
-            UpdatePhoneStatusFromLog(e.Data);
+            if (!HandleEngineEvent(e.Data))
+            {
+                AppendLog(e.Data);
+            }
         });
     }
 
@@ -271,23 +269,45 @@ public sealed partial class MainWindow : Window
         });
     }
 
-    private void UpdatePhoneStatusFromLog(string line)
+    private bool HandleEngineEvent(string line)
     {
-        if (line.Contains("Phone connected", StringComparison.OrdinalIgnoreCase))
+        if (line == "EVENT:PHONE_CONNECTED")
         {
             PhoneStatusText.Text = "Connected";
-            LastPacketText.Text = DateTime.Now.ToString("HH:mm:ss");
+            return true;
         }
-        else if (line.Contains("Phone disconnected", StringComparison.OrdinalIgnoreCase))
+
+        const string packetReceivedPrefix = "EVENT:PACKET_RECEIVED:";
+        if (line.StartsWith(packetReceivedPrefix, StringComparison.Ordinal))
+        {
+            var timestampText = line[packetReceivedPrefix.Length..];
+            if (DateTimeOffset.TryParse(timestampText, out var timestamp))
+            {
+                LastPacketText.Text = timestamp.ToLocalTime().ToString("HH:mm:ss");
+            }
+            else
+            {
+                LastPacketText.Text = DateTime.Now.ToString("HH:mm:ss");
+            }
+
+            return true;
+        }
+
+        if (line == "EVENT:PHONE_DISCONNECTED")
         {
             PhoneStatusText.Text = "Disconnected";
+            LastPacketText.Text = "Never";
+            return true;
         }
+
+        return false;
     }
 
     private void SetEngineStopped()
     {
         EngineStatusText.Text = "Stopped";
         PhoneStatusText.Text = "Disconnected";
+        LastPacketText.Text = "Never";
         StartEngineButton.IsEnabled = true;
         StopEngineButton.IsEnabled = false;
         _statusTimer.Stop();
