@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: mobile/flutter_app
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: |
+            mobile/flutter_app/android/*.gradle*
+            mobile/flutter_app/android/**/gradle-wrapper.properties
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+          pub-cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Build ARM64 release APK
+        run: flutter build apk --release --target-platform android-arm64
+
+      - name: Stage APK and checksum
+        shell: bash
+        run: |
+          mkdir -p ../../release-artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk ../../release-artifacts/GyroPlay-Android-arm64.apk
+          cd ../../release-artifacts
+          sha256sum GyroPlay-Android-arm64.apk > GyroPlay-Android-arm64.apk.sha256
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GyroPlay-Android-arm64
+          path: |
+            release-artifacts/GyroPlay-Android-arm64.apk
+            release-artifacts/GyroPlay-Android-arm64.apk.sha256
+          if-no-files-found: error
+
+  windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Prepare engine environment
+        shell: powershell
+        run: |
+          cd engine\python
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+          .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+
+      - name: Verify installer dependencies
+        shell: powershell
+        run: |
+          $vigem = "installer\dependencies\ViGEmBus_1.22.0_x64_x86_arm64.exe"
+          if (!(Test-Path $vigem)) {
+            throw "Missing required installer dependency: $vigem"
+          }
+
+      - name: Build installer
+        shell: powershell
+        run: .\installer\build-installer.ps1
+
+      - name: Stage installer and checksum
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
+          Copy-Item installer\output\GyroPlaySetup.exe release-artifacts\GyroPlaySetup.exe -Force
+          $hash = Get-FileHash -Algorithm SHA256 release-artifacts\GyroPlaySetup.exe
+          "$($hash.Hash.ToLower())  GyroPlaySetup.exe" | Set-Content -Path release-artifacts\GyroPlaySetup.exe.sha256 -NoNewline
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GyroPlay-Windows-Installer
+          path: |
+            release-artifacts/GyroPlaySetup.exe
+            release-artifacts/GyroPlaySetup.exe.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - android
+      - windows
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Attach artifacts to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/**/*

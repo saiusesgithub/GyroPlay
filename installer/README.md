@@ -37,6 +37,13 @@ The script:
 installer\output\GyroPlaySetup.exe
 ```
 
+For release builds, generate a SHA256 checksum beside the installer:
+
+```powershell
+$hash = Get-FileHash -Algorithm SHA256 installer\output\GyroPlaySetup.exe
+"$($hash.Hash.ToLower())  GyroPlaySetup.exe" | Set-Content installer\output\GyroPlaySetup.exe.sha256
+```
+
 ## Installer Behavior
 
 The installer:
