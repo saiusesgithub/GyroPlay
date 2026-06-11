@@ -17,6 +17,8 @@ public sealed class EngineService : IDisposable
 {
     private DispatcherQueue? _dispatcherQueue;
     private AppPaths _paths = new();
+    private LoggingService _logging = new();
+    private NotificationService _notifications = new();
     private Process? _process;
     private bool _stopRequested;
 
@@ -27,10 +29,12 @@ public sealed class EngineService : IDisposable
     public event Action? StateChanged;
     public event Action<string>? LogReceived;
 
-    public void Initialize(DispatcherQueue dispatcherQueue, AppPaths paths)
+    public void Initialize(DispatcherQueue dispatcherQueue, AppPaths paths, LoggingService logging, NotificationService notifications)
     {
         _dispatcherQueue = dispatcherQueue;
         _paths = paths;
+        _logging = logging;
+        _notifications = notifications;
     }
 
     public void Start()
@@ -46,6 +50,7 @@ public sealed class EngineService : IDisposable
         {
             State = EngineState.Error;
             Log("The controller engine could not be found. Reinstall GyroPlay or check Setup & Diagnostics.");
+            _notifications.Show("GyroPlay engine", "The engine could not be found.");
             NotifyStateChanged();
             return;
         }
@@ -73,6 +78,7 @@ public sealed class EngineService : IDisposable
             {
                 State = EngineState.Error;
                 Log("The engine process did not start.");
+                _notifications.Show("GyroPlay engine", "The engine failed to start.");
                 NotifyStateChanged();
                 return;
             }
@@ -95,6 +101,7 @@ public sealed class EngineService : IDisposable
             process.Dispose();
             State = EngineState.Error;
             Log($"The engine could not be started. {error.Message}");
+            _notifications.Show("GyroPlay engine", "The engine failed to start.");
             NotifyStateChanged();
         }
         catch (Exception error)
@@ -102,6 +109,7 @@ public sealed class EngineService : IDisposable
             process.Dispose();
             State = EngineState.Error;
             Log($"The engine could not be started. {error.Message}");
+            _notifications.Show("GyroPlay engine", "The engine failed to start.");
             NotifyStateChanged();
         }
     }
@@ -170,6 +178,7 @@ public sealed class EngineService : IDisposable
             {
                 State = EngineState.Error;
                 Log("The engine exited unexpectedly.");
+                _notifications.Show("GyroPlay engine", "The engine exited unexpectedly.");
             }
             else
             {
@@ -188,6 +197,11 @@ public sealed class EngineService : IDisposable
     {
         if (line == "EVENT:PHONE_CONNECTED")
         {
+            if (PhoneStatus != "Connected")
+            {
+                _notifications.Show("Phone connected", "Your phone is paired and sending controller data.");
+            }
+
             PhoneStatus = "Connected";
             NotifyStateChanged();
             return true;
@@ -206,6 +220,11 @@ public sealed class EngineService : IDisposable
 
         if (line == "EVENT:PHONE_DISCONNECTED")
         {
+            if (PhoneStatus == "Connected")
+            {
+                _notifications.Show("Phone disconnected", "No heartbeat or input was received from the phone.");
+            }
+
             PhoneStatus = "Disconnected";
             LastPacketText = "Never";
             NotifyStateChanged();
@@ -260,6 +279,7 @@ public sealed class EngineService : IDisposable
 
     private void Log(string message)
     {
+        _logging.Write(message);
         LogReceived?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}");
     }
 

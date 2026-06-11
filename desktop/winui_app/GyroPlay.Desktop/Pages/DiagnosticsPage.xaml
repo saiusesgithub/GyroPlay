@@ -8,6 +8,7 @@
             <StackPanel Spacing="6">
                 <TextBlock FontSize="32" FontWeight="SemiBold" Text="Setup &amp; Diagnostics" />
                 <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Check the desktop bridge, driver, firewall, and pairing storage." />
+                <TextBlock x:Name="VersionText" Foreground="{StaticResource MutedTextBrush}" />
             </StackPanel>
 
             <Grid ColumnSpacing="16" RowSpacing="16">
@@ -53,20 +54,30 @@
 
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Button Click="RefreshChecksButton_Click" Content="Run Checks Again" />
+                <Button Click="RepairSetupButton_Click" Content="Repair Setup..." />
                 <Button Click="OpenTroubleshootingButton_Click" Content="Open troubleshooting" />
+                <Button Click="CopyIpButton_Click" Content="Copy PC IP" />
+                <TextBlock x:Name="FeedbackText" VerticalAlignment="Center" Foreground="{StaticResource GyroPlayAccentBrush}" />
             </StackPanel>
 
             <Expander Header="Advanced logs">
-                <TextBox
-                    x:Name="AdvancedLogTextBox"
-                    MinHeight="220"
-                    AcceptsReturn="True"
-                    FontFamily="Consolas"
-                    FontSize="13"
-                    IsReadOnly="True"
-                    TextWrapping="NoWrap"
-                    ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                    ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                <StackPanel Spacing="10">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Click="ClearLogsButton_Click" Content="Clear logs" />
+                        <Button Click="CopyLogsButton_Click" Content="Copy logs" />
+                        <Button Click="OpenLogFolderButton_Click" Content="Open log folder" />
+                    </StackPanel>
+                    <TextBox
+                        x:Name="AdvancedLogTextBox"
+                        MinHeight="220"
+                        AcceptsReturn="True"
+                        FontFamily="Consolas"
+                        FontSize="13"
+                        IsReadOnly="True"
+                        TextWrapping="NoWrap"
+                        ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                </StackPanel>
             </Expander>
         </StackPanel>
     </ScrollViewer>

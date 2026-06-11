@@ -31,7 +31,9 @@ public sealed partial class AboutPage : Page
     private void TroubleshootingButton_Click(object sender, RoutedEventArgs e)
     {
         var path = AppServices.Paths.TroubleshootingPath;
-        var target = path is not null && File.Exists(path) ? path : "https://github.com/";
+        var target = path is not null && File.Exists(path)
+            ? path
+            : "https://github.com/GyroPlay/GyroPlay/blob/main/docs/troubleshooting.md";
         Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
     }
 }

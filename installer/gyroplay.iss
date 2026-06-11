@@ -32,6 +32,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 [Files]
 Source: "{#BuildDir}\desktop\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\engine\python\dist\GyroPlay.Engine.exe"; DestDir: "{app}\engine"; DestName: "GyroPlay.Engine.exe"; Flags: ignoreversion
+Source: "dependencies\ViGEmBus_1.22.0_x64_x86_arm64.exe"; DestDir: "{app}\dependencies"; Flags: ignoreversion
+Source: "..\docs\troubleshooting.md"; DestDir: "{app}\docs"; Flags: ignoreversion
 Source: "dependencies\ViGEmBus_1.22.0_x64_x86_arm64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; AfterInstall: InstallViGEmBusIfNeeded
 
 [Icons]

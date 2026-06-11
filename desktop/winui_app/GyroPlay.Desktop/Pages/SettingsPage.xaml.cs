@@ -62,6 +62,17 @@ public sealed partial class SettingsPage : Page
         settings.LaunchWithWindows = LaunchWithWindowsToggle.IsOn;
         settings.ShowConnectionNotifications = NotificationsToggle.IsOn;
         settings.Theme = (ThemeComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "Dark";
+
+        try
+        {
+            AppServices.Startup.SetLaunchWithWindows(settings.LaunchWithWindows);
+        }
+        catch (Exception error)
+        {
+            SettingsStatusText.Text = $"Startup registration failed: {error.Message}";
+            return;
+        }
+
         await AppServices.Settings.SaveAsync();
         SettingsStatusText.Text = "Settings saved. Startup and tray options take effect on restart.";
     }

@@ -12,6 +12,7 @@ public enum CheckState
 {
     Ok,
     Missing,
+    DisabledOrIncorrect,
     Error,
 }
 
@@ -102,6 +103,14 @@ public sealed class HealthCheckService
             var result = RunProcess("netsh.exe", "advfirewall firewall show rule name=\"GyroPlay UDP 5005\"");
             if (result.ExitCode == 0 && result.Output.Contains("GyroPlay UDP 5005", StringComparison.OrdinalIgnoreCase))
             {
+                if (result.Output.Contains("Enabled:                              No", StringComparison.OrdinalIgnoreCase) ||
+                    !result.Output.Contains("LocalPort:                            5005", StringComparison.OrdinalIgnoreCase) ||
+                    !result.Output.Contains("Protocol:                             UDP", StringComparison.OrdinalIgnoreCase) ||
+                    !result.Output.Contains("Direction:                            In", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new CheckResult("Firewall rule", CheckState.DisabledOrIncorrect, "The UDP firewall rule exists but is disabled or incorrect.", result.Output.Trim());
+                }
+
                 return new CheckResult("Firewall rule", CheckState.Ok, "UDP port 5005 is configured.");
             }
 
