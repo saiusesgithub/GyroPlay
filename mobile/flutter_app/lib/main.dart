@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,9 +54,12 @@ class GyroPlayHome extends StatefulWidget {
 class _GyroPlayHomeState extends State<GyroPlayHome>
     with WidgetsBindingObserver {
   static const int _defaultUdpPort = 5005;
-  static const double _fullSteeringTiltDegrees = 45.0;
-  static const double _deadZoneDegrees = 2.0;
-  static const double _smoothingAlpha = 0.12;
+  static const String _profileName = 'Assetto Corsa';
+  static const double _defaultDeadZoneDegrees = 2.0;
+  static const double _defaultMaxTiltDegrees = 45.0;
+  static const double _defaultSensitivity = 1.0;
+  static const double _defaultSmoothing = 0.12;
+  static const bool _defaultInvertSteering = false;
   static const Duration _sendInterval = Duration(milliseconds: 16);
   static const Duration _uiTiltInterval = Duration(milliseconds: 40);
 
@@ -80,10 +84,14 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   double _rawRollDegrees = 0.0;
   double _currentTiltDegrees = 0.0;
   double _targetSteeringValue = 0.0;
+  double _deadZoneDegrees = _defaultDeadZoneDegrees;
+  double _maxTiltDegrees = _defaultMaxTiltDegrees;
+  double _steeringSensitivity = _defaultSensitivity;
+  double _smoothing = _defaultSmoothing;
   double _throttle = 0.0;
   double _brake = 0.0;
   double? _calibratedRollDegrees;
-  bool _invertSteering = false;
+  bool _invertSteering = _defaultInvertSteering;
   bool _gearUp = false;
   bool _gearDown = false;
   bool _handbrake = false;
@@ -96,7 +104,78 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadSettings();
     _startSensors();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _deadZoneDegrees =
+          prefs.getDouble('steering_dead_zone') ?? _defaultDeadZoneDegrees;
+      _maxTiltDegrees =
+          prefs.getDouble('steering_max_tilt') ?? _defaultMaxTiltDegrees;
+      _steeringSensitivity =
+          prefs.getDouble('steering_sensitivity') ?? _defaultSensitivity;
+      _smoothing = prefs.getDouble('steering_smoothing') ?? _defaultSmoothing;
+      _invertSteering =
+          prefs.getBool('steering_invert') ?? _defaultInvertSteering;
+    });
+  }
+
+  Future<void> _saveSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('steering_dead_zone', _deadZoneDegrees);
+    await prefs.setDouble('steering_max_tilt', _maxTiltDegrees);
+    await prefs.setDouble('steering_sensitivity', _steeringSensitivity);
+    await prefs.setDouble('steering_smoothing', _smoothing);
+    await prefs.setBool('steering_invert', _invertSteering);
+  }
+
+  void _updateSettings({
+    double? deadZoneDegrees,
+    double? maxTiltDegrees,
+    double? steeringSensitivity,
+    double? smoothing,
+    bool? invertSteering,
+  }) {
+    setState(() {
+      if (deadZoneDegrees != null) {
+        _deadZoneDegrees = deadZoneDegrees;
+      }
+      if (maxTiltDegrees != null) {
+        _maxTiltDegrees = maxTiltDegrees;
+      }
+      if (steeringSensitivity != null) {
+        _steeringSensitivity = steeringSensitivity;
+      }
+      if (smoothing != null) {
+        _smoothing = smoothing;
+      }
+      if (invertSteering != null) {
+        _invertSteering = invertSteering;
+        _steeringValue = 0.0;
+        _targetSteeringValue = 0.0;
+      }
+    });
+
+    _saveSettings();
+  }
+
+  void _resetSettingsToDefaults() {
+    _updateSettings(
+      deadZoneDegrees: _defaultDeadZoneDegrees,
+      maxTiltDegrees: _defaultMaxTiltDegrees,
+      steeringSensitivity: _defaultSensitivity,
+      smoothing: _defaultSmoothing,
+      invertSteering: _defaultInvertSteering,
+    );
+    _showSnackBar('Assetto Corsa profile restored.');
   }
 
   @override
@@ -377,7 +456,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
         : relativeDegrees;
     final targetSteering = _steeringFromRoll(effectiveDegrees);
     var smoothedSteering =
-        _steeringValue + _smoothingAlpha * (targetSteering - _steeringValue);
+        _steeringValue + _smoothing * (targetSteering - _steeringValue);
 
     final steeringChanged =
         _steeringMode == SteeringMode.tilt &&
@@ -430,9 +509,11 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     }
 
     final adjustedDegrees = rollDegrees.abs() - _deadZoneDegrees;
-    final steeringRange = _fullSteeringTiltDegrees - _deadZoneDegrees;
+    final steeringRange = (_maxTiltDegrees - _deadZoneDegrees).clamp(1.0, 90.0);
+    final scaledSteering =
+        (adjustedDegrees / steeringRange) * _steeringSensitivity;
 
-    return (adjustedDegrees / steeringRange).clamp(0.0, 1.0) * rollDegrees.sign;
+    return scaledSteering.clamp(0.0, 1.0) * rollDegrees.sign;
   }
 
   void _calibrate() {
@@ -445,15 +526,6 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     });
     _sendNeutralPacket();
     _showSnackBar('Tilt center calibrated.');
-  }
-
-  void _setInvertSteering(bool value) {
-    setState(() {
-      _invertSteering = value;
-      _steeringValue = 0.0;
-    });
-
-    _sendNeutralPacket();
   }
 
   void _setMode(SteeringMode mode) {
@@ -632,6 +704,100 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  Future<void> _showSettingsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void updateSheet(VoidCallback action) {
+              action();
+              setSheetState(() {});
+            }
+
+            return SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Controller Settings',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Profile: $_profileName'),
+                    const SizedBox(height: 18),
+                    _SettingsSlider(
+                      label: 'Steering dead zone',
+                      value: _deadZoneDegrees,
+                      min: 0.0,
+                      max: 10.0,
+                      divisions: 100,
+                      displayValue:
+                          '${_deadZoneDegrees.toStringAsFixed(1)} deg',
+                      onChanged: (value) => updateSheet(
+                        () => _updateSettings(deadZoneDegrees: value),
+                      ),
+                    ),
+                    _SettingsSlider(
+                      label: 'Maximum tilt angle',
+                      value: _maxTiltDegrees,
+                      min: 20.0,
+                      max: 90.0,
+                      divisions: 140,
+                      displayValue: '${_maxTiltDegrees.toStringAsFixed(1)} deg',
+                      onChanged: (value) => updateSheet(
+                        () => _updateSettings(maxTiltDegrees: value),
+                      ),
+                    ),
+                    _SettingsSlider(
+                      label: 'Steering sensitivity',
+                      value: _steeringSensitivity,
+                      min: 0.5,
+                      max: 2.0,
+                      divisions: 150,
+                      displayValue:
+                          '${_steeringSensitivity.toStringAsFixed(2)}x',
+                      onChanged: (value) => updateSheet(
+                        () => _updateSettings(steeringSensitivity: value),
+                      ),
+                    ),
+                    _SettingsSlider(
+                      label: 'Smoothing',
+                      value: _smoothing,
+                      min: 0.0,
+                      max: 0.5,
+                      divisions: 100,
+                      displayValue: _smoothing.toStringAsFixed(2),
+                      onChanged: (value) =>
+                          updateSheet(() => _updateSettings(smoothing: value)),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Invert steering'),
+                      value: _invertSteering,
+                      onChanged: (value) => updateSheet(
+                        () => _updateSettings(invertSteering: value),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () => updateSheet(_resetSettingsToDefaults),
+                      child: const Text('Reset to Defaults'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusText = switch (_connectionStatus) {
@@ -726,12 +892,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
                             onSelectionChanged: (selection) =>
                                 _setMode(selection.first),
                           ),
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                            title: const Text('Invert steering'),
-                            value: _invertSteering,
-                            onChanged: _setInvertSteering,
+                          OutlinedButton(
+                            onPressed: _showSettingsSheet,
+                            child: const Text('Settings'),
                           ),
                         ],
                       ),
@@ -967,6 +1130,50 @@ class _PairingPayload {
   final String host;
   final int port;
   final String pairingToken;
+}
+
+class _SettingsSlider extends StatelessWidget {
+  const _SettingsSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.displayValue,
+    required this.onChanged,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String displayValue;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [Text(label), Text(displayValue)],
+          ),
+          Slider(
+            value: value.clamp(min, max),
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: displayValue,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _QrScannerPage extends StatefulWidget {
