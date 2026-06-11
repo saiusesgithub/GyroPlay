@@ -68,6 +68,7 @@ jobs:
   windows:
     name: Build Windows Installer
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -81,7 +82,11 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            engine/python/requirements.txt
+            engine/python/requirements-dev.txt
 
       - name: Install Inno Setup
         shell: powershell
@@ -90,15 +95,64 @@ jobs:
       - name: Prepare engine environment
         shell: powershell
         run: |
+          Write-Host "Entering engine directory..."
           cd engine\python
+
+          Write-Host "Creating Python virtual environment..."
           python -m venv .venv
-          .\.venv\Scripts\python.exe -m pip install --upgrade pip
-          .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-          .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+          $python = ".\.venv\Scripts\python.exe"
+
+          Write-Host "Upgrading pip, setuptools, and wheel..."
+          & $python -m pip install --upgrade pip setuptools wheel
+
+          Write-Host "Installing vgamepad without build isolation..."
+          & $python -m pip install `
+            --no-build-isolation `
+            vgamepad==0.1.0
+
+          Write-Host "Installing remaining runtime requirements without reinstalling vgamepad..."
+          $filteredRequirements = "requirements-ci.txt"
+          $runtimeRequirements = @(Get-Content requirements.txt |
+            Where-Object {
+              $line = $_.Trim()
+              $line -and
+                -not $line.StartsWith("#") -and
+                $line -notmatch "(?i)^vgamepad([<>=!~ ].*)?$"
+            })
+
+          if ($runtimeRequirements.Count -gt 0) {
+            $runtimeRequirements | Set-Content -Path $filteredRequirements -Encoding utf8
+            & $python -m pip install -r $filteredRequirements
+          }
+          else {
+            Write-Host "No additional runtime requirements found."
+          }
+
+          Write-Host "Installing PyInstaller..."
+          & $python -m pip install pyinstaller
+
+      - name: Build packaged engine
+        shell: powershell
+        run: |
+          Write-Host "Building GyroPlay.Engine.exe with PyInstaller..."
+          cd engine\python
+
+          .\.venv\Scripts\python.exe -m PyInstaller `
+            --onefile `
+            --console `
+            --name GyroPlay.Engine `
+            main.py
+
+          $engineExe = "dist\GyroPlay.Engine.exe"
+          Write-Host "Verifying packaged engine at engine/python/$engineExe..."
+          if (!(Test-Path $engineExe)) {
+            throw "Expected packaged engine was not created: engine/python/$engineExe"
+          }
 
       - name: Verify installer dependencies
         shell: powershell
         run: |
+          Write-Host "Verifying installer dependencies..."
           $vigem = "installer\dependencies\ViGEmBus_1.22.0_x64_x86_arm64.exe"
           if (!(Test-Path $vigem)) {
             throw "Missing required installer dependency: $vigem"
@@ -106,11 +160,14 @@ jobs:
 
       - name: Build installer
         shell: powershell
-        run: .\installer\build-installer.ps1
+        run: |
+          Write-Host "Publishing WinUI app and compiling Inno Setup installer..."
+          .\installer\build-installer.ps1
 
       - name: Stage installer and checksum
         shell: powershell
         run: |
+          Write-Host "Staging installer and generating SHA256 checksum..."
           New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
           Copy-Item installer\output\GyroPlaySetup.exe release-artifacts\GyroPlaySetup.exe -Force
           $hash = Get-FileHash -Algorithm SHA256 release-artifacts\GyroPlaySetup.exe
