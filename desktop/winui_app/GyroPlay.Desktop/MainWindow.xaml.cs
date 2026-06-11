@@ -50,6 +50,7 @@ public sealed partial class MainWindow : Window
         AppendLog("GyroPlay desktop control panel ready.");
         AppendLog($"Application base directory: {AppContext.BaseDirectory}");
         AppendLog($"Resolved packaged engine path: {GetInstalledPackagedEnginePath()}");
+        AppendLog($"Resolved pairing file path: {GetPairingFilePath()}");
         AppendLog($"Development fallback enabled: {IsDevelopmentFallbackAvailable()}");
         _ = RefreshPairingCodeAsync();
     }
@@ -315,7 +316,8 @@ public sealed partial class MainWindow : Window
         PairingTokenText.Text = token;
         UpdatePairingExpiryText();
         _pairingTimer.Start();
-        AppendLog($"Pairing code refreshed. Token expires at {_pairingTokenExpiresAt.LocalDateTime:HH:mm:ss}.");
+        AppendLog($"Generated pairing token: {token}");
+        AppendLog($"Pairing token expiry: {_pairingTokenExpiresAt.LocalDateTime:HH:mm:ss}");
     }
 
     private static string GeneratePairingToken()
@@ -340,26 +342,35 @@ public sealed partial class MainWindow : Window
         PairingQrImage.Source = image;
     }
 
-    private static void WritePairingFile(string token, DateTimeOffset expiresAt)
+    private void WritePairingFile(string token, DateTimeOffset expiresAt)
     {
         var pairingFilePath = GetPairingFilePath();
         var pairingDirectory = Path.GetDirectoryName(pairingFilePath);
 
-        if (pairingDirectory is not null)
+        try
         {
-            Directory.CreateDirectory(pairingDirectory);
-        }
-
-        var json = JsonSerializer.Serialize(
-            new
+            if (pairingDirectory is not null)
             {
-                version = 1,
-                pairing_token = token,
-                expires_at = expiresAt.ToString("O"),
-            },
-            new JsonSerializerOptions { WriteIndented = true });
+                Directory.CreateDirectory(pairingDirectory);
+            }
 
-        File.WriteAllText(pairingFilePath, json);
+            var json = JsonSerializer.Serialize(
+                new
+                {
+                    version = 1,
+                    pairing_token = token,
+                    expires_at = expiresAt.ToString("O"),
+                },
+                new JsonSerializerOptions { WriteIndented = true });
+
+            File.WriteAllText(pairingFilePath, json);
+            AppendLog($"Pairing file written successfully: {pairingFilePath}");
+        }
+        catch (Exception error)
+        {
+            AppendLog($"Error: failed to write pairing file at {pairingFilePath}");
+            AppendLog(error.Message);
+        }
     }
 
     private void UpdatePairingExpiryText()
@@ -413,19 +424,8 @@ public sealed partial class MainWindow : Window
 
     private static string GetPairingFilePath()
     {
-        var installedEnginePath = GetInstalledPackagedEnginePath();
-        if (File.Exists(installedEnginePath))
-        {
-            return Path.Combine(GetInstalledEngineDirectory(), "pairing.json");
-        }
-
-        var repositoryRoot = TryGetRepositoryRoot();
-        if (repositoryRoot is not null)
-        {
-            return Path.Combine(repositoryRoot, "engine", "python", "pairing.json");
-        }
-
-        return Path.Combine(GetInstalledEngineDirectory(), "pairing.json");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localAppData, "GyroPlay", "pairing.json");
     }
 
     private static string GetPythonExecutablePath(string repositoryRoot)
@@ -446,7 +446,7 @@ public sealed partial class MainWindow : Window
 
             return new EngineLaunchInfo(
                 installedEnginePath,
-                string.Empty,
+                $"--pairing-file {QuoteArgument(GetPairingFilePath())}",
                 packagedWorkingDirectory,
                 IsDevelopmentFallback: false);
         }
@@ -468,7 +468,7 @@ public sealed partial class MainWindow : Window
 
             return new EngineLaunchInfo(
                 developmentPackagedEnginePath,
-                string.Empty,
+                $"--pairing-file {QuoteArgument(GetPairingFilePath())}",
                 packagedWorkingDirectory,
                 IsDevelopmentFallback: true);
         }
@@ -485,7 +485,7 @@ public sealed partial class MainWindow : Window
 
             return new EngineLaunchInfo(
                 pythonExecutablePath,
-                $"-u \"{engineScriptPath}\"",
+                $"-u {QuoteArgument(engineScriptPath)} --pairing-file {QuoteArgument(GetPairingFilePath())}",
                 engineWorkingDirectory,
                 IsDevelopmentFallback: true);
         }
@@ -498,6 +498,11 @@ public sealed partial class MainWindow : Window
         string Arguments,
         string WorkingDirectory,
         bool IsDevelopmentFallback);
+
+    private static string QuoteArgument(string value)
+    {
+        return $"\"{value.Replace("\"", "\\\"")}\"";
+    }
 
     private static bool IsDevelopmentFallbackAvailable()
     {

@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import socket
@@ -22,7 +23,7 @@ LEFT_STICK_MIN = -32768
 LEFT_STICK_MAX = 32767
 TRIGGER_MAX = 255
 SUPPORTED_VERSION = 1
-PAIRING_FILE = os.path.join(os.path.dirname(__file__), "pairing.json")
+DEFAULT_PAIRING_FILE = os.path.join(os.path.dirname(__file__), "pairing.json")
 
 BUTTON_MAP = {
     "gear_up": vg.XUSB_BUTTON.XUSB_GAMEPAD_A,
@@ -94,15 +95,25 @@ def parse_json_packet(data):
     return packet
 
 
-def load_pairing_info():
-    if not os.path.exists(PAIRING_FILE):
-        raise ValueError("pairing code is not available. Refresh pairing code in the desktop app")
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="GyroPlay UDP controller engine")
+    parser.add_argument(
+        "--pairing-file",
+        default=os.environ.get("GYROPLAY_PAIRING_FILE", DEFAULT_PAIRING_FILE),
+        help="Path to the pairing state JSON file written by the desktop app.",
+    )
+    return parser.parse_args()
+
+
+def load_pairing_info(pairing_file):
+    if not os.path.exists(pairing_file):
+        raise ValueError(f"pairing file is missing: {pairing_file}")
 
     try:
-        with open(PAIRING_FILE, "r", encoding="utf-8") as file:
+        with open(pairing_file, "r", encoding="utf-8") as file:
             pairing_info = json.load(file)
     except (OSError, json.JSONDecodeError) as error:
-        raise ValueError(f"could not read pairing code ({error})") from error
+        raise ValueError(f"could not read pairing file {pairing_file} ({error})") from error
 
     if not isinstance(pairing_info, dict):
         raise ValueError("pairing file root must be an object")
@@ -132,7 +143,7 @@ def load_pairing_info():
     return pairing_token
 
 
-def validate_hello(packet):
+def validate_hello(packet, pairing_file):
     if packet.get("type") != "hello":
         raise ValueError('type must equal "hello"')
 
@@ -144,7 +155,7 @@ def validate_hello(packet):
     if not isinstance(pairing_token, str) or not pairing_token:
         raise ValueError("pairing_token is required")
 
-    expected_token = load_pairing_info()
+    expected_token = load_pairing_info(pairing_file)
     if pairing_token != expected_token:
         raise ValueError("invalid pairing_token")
 
@@ -219,7 +230,11 @@ def send_hello_ack(udp_socket, address, session_id):
 
 
 def main():
+    args = parse_arguments()
+    pairing_file = os.path.abspath(args.pairing_file)
+
     print("GyroPlay Python UDP controller engine")
+    print(f"Pairing file: {pairing_file}")
     print("Creating virtual Xbox 360 controller...")
 
     try:
@@ -282,7 +297,7 @@ def main():
 
             if packet_type == "hello":
                 try:
-                    device_name = validate_hello(packet)
+                    device_name = validate_hello(packet, pairing_file)
                 except ValueError as error:
                     print(f"Pairing rejected: {error}")
                     continue
