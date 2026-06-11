@@ -94,6 +94,8 @@ jobs:
 
       - name: Prepare engine environment
         shell: powershell
+        env:
+          VGAMEPAD_SKIP_VIGEMBUS_INSTALL: "true"
         run: |
           Write-Host "Entering engine directory..."
           cd engine\python
@@ -103,11 +105,11 @@ jobs:
           $python = ".\.venv\Scripts\python.exe"
 
           Write-Host "Upgrading pip, setuptools, and wheel..."
-          & $python -m pip install --upgrade pip setuptools wheel
-
-          Write-Host "Installing vgamepad without build isolation..."
           & $python -m pip install `
-            --no-build-isolation `
+            --upgrade pip setuptools wheel
+
+          Write-Host "Installing vgamepad with ViGEmBus installer disabled..."
+          & $python -m pip install `
             vgamepad==0.1.0
 
           Write-Host "Installing remaining runtime requirements without reinstalling vgamepad..."
@@ -129,10 +131,13 @@ jobs:
           }
 
           Write-Host "Installing PyInstaller..."
-          & $python -m pip install pyinstaller
+          & $python -m pip install `
+            pyinstaller
 
       - name: Build packaged engine
         shell: powershell
+        env:
+          VGAMEPAD_SKIP_VIGEMBUS_INSTALL: "true"
         run: |
           Write-Host "Building GyroPlay.Engine.exe with PyInstaller..."
           cd engine\python
@@ -143,10 +148,9 @@ jobs:
             --name GyroPlay.Engine `
             main.py
 
-          $engineExe = "dist\GyroPlay.Engine.exe"
-          Write-Host "Verifying packaged engine at engine/python/$engineExe..."
-          if (!(Test-Path $engineExe)) {
-            throw "Expected packaged engine was not created: engine/python/$engineExe"
+          Write-Host "Verifying packaged engine at engine/python/dist/GyroPlay.Engine.exe..."
+          if (-not (Test-Path "dist\GyroPlay.Engine.exe")) {
+            throw "GyroPlay.Engine.exe was not generated."
           }
 
       - name: Verify installer dependencies
