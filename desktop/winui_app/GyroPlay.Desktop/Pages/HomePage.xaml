@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="GyroPlay.Desktop.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer>
+        <Grid Padding="32" RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Spacing="6">
+                <TextBlock
+                    FontSize="36"
+                    FontWeight="SemiBold"
+                    Text="GyroPlay" />
+                <TextBlock
+                    Foreground="{StaticResource MutedTextBrush}"
+                    Text="Mobile tilt and touch controls for Windows racing games." />
+            </StackPanel>
+
+            <Grid Grid.Row="1" ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Overall state" />
+                        <TextBlock x:Name="OverallStateText" FontSize="24" FontWeight="SemiBold" Text="Checking" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Phone" />
+                        <TextBlock x:Name="PhoneStatusText" FontSize="24" FontWeight="SemiBold" Text="Disconnected" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Last packet" />
+                        <TextBlock x:Name="LastPacketText" FontSize="24" FontWeight="SemiBold" Text="Never" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnSpacing="20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.1*" />
+                    <ColumnDefinition Width="0.9*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="18">
+                        <TextBlock FontSize="22" FontWeight="SemiBold" Text="Connection" />
+                        <Grid ColumnSpacing="12" RowSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Local IPv4" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                <TextBlock x:Name="LocalIpText" VerticalAlignment="Center" Text="Detecting..." />
+                                <Button Click="CopyIpButton_Click" ToolTipService.ToolTip="Copy IP address">
+                                    <FontIcon Glyph="&#xE8C8;" />
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Grid.Row="1" Foreground="{StaticResource MutedTextBrush}" Text="UDP port" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="5005" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button x:Name="StartEngineButton" Click="StartEngineButton_Click" Content="Start Engine" />
+                            <Button x:Name="StopEngineButton" Click="StopEngineButton_Click" Content="Stop Engine" IsEnabled="False" />
+                            <TextBlock x:Name="CopyFeedbackText" VerticalAlignment="Center" Foreground="{StaticResource GyroPlayAccentBrush}" />
+                        </StackPanel>
+                        <StackPanel Spacing="8">
+                            <TextBlock FontWeight="SemiBold" Text="Controller activity" />
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <InfoBadge x:Name="EngineBadge" Value="0" />
+                                <TextBlock VerticalAlignment="Center" Text="Engine running" />
+                                <InfoBadge x:Name="PhoneBadge" Value="0" />
+                                <TextBlock VerticalAlignment="Center" Text="Phone paired" />
+                                <InfoBadge x:Name="PacketBadge" Value="0" />
+                                <TextBlock VerticalAlignment="Center" Text="Input received" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}">
+                    <StackPanel Spacing="14">
+                        <TextBlock FontSize="22" FontWeight="SemiBold" Text="Pair your phone" />
+                        <Border Padding="10" HorizontalAlignment="Left" Background="White" CornerRadius="10">
+                            <Image x:Name="PairingQrImage" Width="210" Height="210" />
+                        </Border>
+                        <TextBlock x:Name="TokenExpiryText" Foreground="{StaticResource MutedTextBrush}" Text="Expires: -" />
+                        <TextBlock Foreground="{StaticResource MutedTextBrush}" Text="Manual token" />
+                        <TextBlock x:Name="PairingTokenText" FontFamily="Consolas" FontSize="20" Text="-" />
+                        <Button Click="RefreshPairingButton_Click" Content="Refresh Pairing Code" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </ScrollViewer>
+</Page>
