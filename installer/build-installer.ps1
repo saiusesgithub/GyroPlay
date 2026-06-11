@@ -13,6 +13,7 @@ $desktopPublish = Join-Path $installerBuild "desktop"
 $engineStage = Join-Path $installerBuild "engine"
 $engineExe = Join-Path $engineDir "dist\GyroPlay.Engine.exe"
 $enginePython = Join-Path $engineDir ".venv\Scripts\python.exe"
+$engineBuildScript = Join-Path $engineDir "build-engine.ps1"
 $issFile = Join-Path $PSScriptRoot "gyroplay.iss"
 $outputExe = Join-Path $PSScriptRoot "output\GyroPlaySetup.exe"
 
@@ -47,19 +48,11 @@ if (!(Test-Path $enginePython)) {
     throw "Missing engine Python virtual environment: $enginePython"
 }
 
-$specFile = Join-Path $engineDir "GyroPlay.Engine.spec"
-Push-Location $engineDir
-try {
-    if (Test-Path $specFile) {
-        & $enginePython -m PyInstaller --clean --noconfirm $specFile
-    }
-    else {
-        & $enginePython -m PyInstaller --clean --noconfirm --onefile --name GyroPlay.Engine main.py
-    }
+if (!(Test-Path $engineBuildScript)) {
+    throw "Missing engine build script: $engineBuildScript"
 }
-finally {
-    Pop-Location
-}
+
+& $engineBuildScript
 
 if (!(Test-Path $engineExe)) {
     throw "Expected packaged engine was not created: $engineExe"
