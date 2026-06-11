@@ -48,8 +48,9 @@ public sealed partial class MainWindow : Window
 
         LocalIpText.Text = GetLocalIpv4Address();
         AppendLog("GyroPlay desktop control panel ready.");
+        AppendLog($"Packaged engine path: {GetPackagedEnginePath()}");
         AppendLog($"Engine path: {GetEngineScriptPath()}");
-        AppendLog($"Preferred Python path: {GetPythonExecutablePath()}");
+        AppendLog($"Development Python path: {GetPythonExecutablePath()}");
         _ = RefreshPairingCodeAsync();
     }
 
@@ -96,20 +97,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var engineScriptPath = GetEngineScriptPath();
-        if (!File.Exists(engineScriptPath))
+        var launchInfo = ResolveEngineLaunchInfo();
+        if (launchInfo is null)
         {
             SetEngineStopped();
-            AppendLog($"Error: engine script not found at {engineScriptPath}");
-            return;
-        }
-
-        var pythonExecutablePath = GetPythonExecutablePath();
-        if (!File.Exists(pythonExecutablePath))
-        {
-            SetEngineStopped();
-            AppendLog($"Error: Python virtual environment not found at {pythonExecutablePath}");
-            AppendLog("Create the engine virtual environment and install dependencies first:");
+            AppendLog($"Error: packaged engine not found at {GetPackagedEnginePath()}");
+            AppendLog($"Error: development Python not found at {GetPythonExecutablePath()}");
+            AppendLog("Build the packaged engine or create the development virtual environment:");
             AppendLog(@"  cd engine\python");
             AppendLog(@"  python -m venv .venv");
             AppendLog(@"  .\.venv\Scripts\Activate.ps1");
@@ -117,21 +111,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var engineDirectory = Path.GetDirectoryName(engineScriptPath);
-        if (engineDirectory is null)
-        {
-            SetEngineStopped();
-            AppendLog("Error: could not resolve engine directory.");
-            return;
-        }
-
         _stopRequested = false;
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = pythonExecutablePath,
-            Arguments = $"-u \"{engineScriptPath}\"",
-            WorkingDirectory = engineDirectory,
+            FileName = launchInfo.ExecutablePath,
+            Arguments = launchInfo.Arguments,
+            WorkingDirectory = launchInfo.WorkingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -165,14 +151,18 @@ public sealed partial class MainWindow : Window
             StartEngineButton.IsEnabled = false;
             StopEngineButton.IsEnabled = true;
             _statusTimer.Start();
-            AppendLog($"Using Python executable: {pythonExecutablePath}");
+            if (launchInfo.IsDevelopmentFallback)
+            {
+                AppendLog("Development fallback mode: packaged engine not found; using Python virtual environment.");
+            }
+            AppendLog($"Launching engine executable: {launchInfo.ExecutablePath}");
             AppendLog($"Started engine process PID {process.Id}.");
         }
         catch (Win32Exception error)
         {
             process.Dispose();
             SetEngineStopped();
-            AppendLog("Error: engine virtual environment Python could not be started.");
+            AppendLog("Error: engine executable could not be started.");
             AppendLog(error.Message);
         }
         catch (Exception error)
@@ -399,6 +389,11 @@ public sealed partial class MainWindow : Window
         return Path.Combine(GetRepositoryRoot(), "engine", "python", "main.py");
     }
 
+    private static string GetPackagedEnginePath()
+    {
+        return Path.Combine(GetRepositoryRoot(), "engine", "python", "dist", "GyroPlay.Engine.exe");
+    }
+
     private static string GetPairingFilePath()
     {
         return Path.Combine(GetRepositoryRoot(), "engine", "python", "pairing.json");
@@ -408,6 +403,50 @@ public sealed partial class MainWindow : Window
     {
         return Path.Combine(GetRepositoryRoot(), "engine", "python", ".venv", "Scripts", "python.exe");
     }
+
+    private static EngineLaunchInfo? ResolveEngineLaunchInfo()
+    {
+        var packagedEnginePath = GetPackagedEnginePath();
+        if (File.Exists(packagedEnginePath))
+        {
+            var packagedWorkingDirectory = Path.GetDirectoryName(packagedEnginePath);
+            if (packagedWorkingDirectory is null)
+            {
+                return null;
+            }
+
+            return new EngineLaunchInfo(
+                packagedEnginePath,
+                string.Empty,
+                packagedWorkingDirectory,
+                IsDevelopmentFallback: false);
+        }
+
+        var pythonExecutablePath = GetPythonExecutablePath();
+        var engineScriptPath = GetEngineScriptPath();
+        if (File.Exists(pythonExecutablePath) && File.Exists(engineScriptPath))
+        {
+            var engineWorkingDirectory = Path.GetDirectoryName(engineScriptPath);
+            if (engineWorkingDirectory is null)
+            {
+                return null;
+            }
+
+            return new EngineLaunchInfo(
+                pythonExecutablePath,
+                $"-u \"{engineScriptPath}\"",
+                engineWorkingDirectory,
+                IsDevelopmentFallback: true);
+        }
+
+        return null;
+    }
+
+    private sealed record EngineLaunchInfo(
+        string ExecutablePath,
+        string Arguments,
+        string WorkingDirectory,
+        bool IsDevelopmentFallback);
 
     private static string GetRepositoryRoot()
     {
