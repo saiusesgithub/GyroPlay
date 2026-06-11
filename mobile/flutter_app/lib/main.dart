@@ -54,9 +54,8 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     with WidgetsBindingObserver {
   static const int _defaultUdpPort = 5005;
   static const double _fullSteeringTiltDegrees = 45.0;
-  static const double _deadZoneDegrees = 3.0;
+  static const double _deadZoneDegrees = 2.0;
   static const double _smoothingAlpha = 0.12;
-  static const double _minimumSteeringChange = 0.01;
   static const Duration _sendInterval = Duration(milliseconds: 16);
   static const Duration _uiTiltInterval = Duration(milliseconds: 40);
 
@@ -80,6 +79,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
   double _steeringValue = 0.0;
   double _rawRollDegrees = 0.0;
   double _currentTiltDegrees = 0.0;
+  double _targetSteeringValue = 0.0;
   double _throttle = 0.0;
   double _brake = 0.0;
   double? _calibratedRollDegrees;
@@ -379,13 +379,9 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     var smoothedSteering =
         _steeringValue + _smoothingAlpha * (targetSteering - _steeringValue);
 
-    if (targetSteering == 0.0 && smoothedSteering.abs() < 0.01) {
-      smoothedSteering = 0.0;
-    }
-
     final steeringChanged =
         _steeringMode == SteeringMode.tilt &&
-        (smoothedSteering - _steeringValue).abs() >= _minimumSteeringChange;
+        smoothedSteering != _steeringValue;
     final shouldUpdateTiltUi = _uiTiltStopwatch.elapsed >= _uiTiltInterval;
 
     if (!steeringChanged && !shouldUpdateTiltUi && _sensorActive) {
@@ -401,6 +397,8 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
         _currentTiltDegrees = effectiveDegrees;
         _uiTiltStopwatch.reset();
       }
+
+      _targetSteeringValue = targetSteering;
 
       if (steeringChanged) {
         _steeringValue = smoothedSteering.clamp(-1.0, 1.0);
@@ -443,6 +441,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _currentTiltDegrees = 0.0;
       _manualLeftX = 0.0;
       _steeringValue = 0.0;
+      _targetSteeringValue = 0.0;
     });
     _sendNeutralPacket();
     _showSnackBar('Tilt center calibrated.');
@@ -466,6 +465,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
       _steeringMode = mode;
       _manualLeftX = 0.0;
       _steeringValue = 0.0;
+      _targetSteeringValue = 0.0;
     });
 
     _sendNeutralPacket();
@@ -513,6 +513,7 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
     setState(() {
       _manualLeftX = 0.0;
       _steeringValue = 0.0;
+      _targetSteeringValue = 0.0;
       _throttle = 0.0;
       _brake = 0.0;
       _gearUp = false;
@@ -749,11 +750,14 @@ class _GyroPlayHomeState extends State<GyroPlayHome>
                         Text(sensorText),
                         const SizedBox(height: 12),
                         Text(
-                          'Roll: ${_currentTiltDegrees.toStringAsFixed(1)} deg',
+                          'Raw tilt: ${_currentTiltDegrees.toStringAsFixed(1)} deg',
                         ),
                         Text(
-                          'Steering: ${_steeringValue.toStringAsFixed(2)}',
+                          'Final steering: ${_steeringValue.toStringAsFixed(3)}',
                           style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        Text(
+                          'Target: ${_targetSteeringValue.toStringAsFixed(3)}  |  5 deg -> ${_steeringFromRoll(5.0).toStringAsFixed(3)}',
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton(
