@@ -132,10 +132,42 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Staging installer and generating SHA256 checksum..."
+          Get-ChildItem "installer\output" -File |
+            ForEach-Object {
+              Write-Host "Installer output: $($_.FullName)"
+            }
+
+          $installerFiles = @(Get-ChildItem `
+            -Path "installer\output" `
+            -Filter "GyroPlaySetup-*.exe" `
+            -File)
+
+          if ($installerFiles.Count -eq 0) {
+            throw "No versioned GyroPlay installer was found in installer\output."
+          }
+
+          if ($installerFiles.Count -gt 1) {
+            throw "Multiple GyroPlay installers were found in installer\output. Clean stale output before building."
+          }
+
+          $installerPath = $installerFiles[0].FullName
+          Write-Host "Installer found: $installerPath"
+
           New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null
-          Copy-Item installer\output\GyroPlaySetup.exe release-artifacts\GyroPlaySetup.exe -Force
-          $hash = Get-FileHash -Algorithm SHA256 release-artifacts\GyroPlaySetup.exe
-          "$($hash.Hash.ToLower())  GyroPlaySetup.exe" | Set-Content -Path release-artifacts\GyroPlaySetup.exe.sha256 -NoNewline
+
+          Copy-Item `
+            $installerPath `
+            "release-artifacts\GyroPlaySetup.exe" `
+            -Force
+
+          $hash = Get-FileHash `
+            -Algorithm SHA256 `
+            "release-artifacts\GyroPlaySetup.exe"
+
+          "$($hash.Hash.ToLower())  GyroPlaySetup.exe" |
+            Set-Content `
+              -Path "release-artifacts\GyroPlaySetup.exe.sha256" `
+              -NoNewline
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
