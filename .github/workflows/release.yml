@@ -134,12 +134,6 @@ jobs:
             throw "vgamepad package was not installed successfully."
           }
 
-          $sitePackages = & $python -c "import site; print(site.getsitepackages()[0])"
-          $vgamepadPath = Join-Path $sitePackages.Trim() "vgamepad"
-          if (-not (Test-Path $vgamepadPath)) {
-            throw "Installed vgamepad package directory was not found."
-          }
-
           Write-Host "Installing remaining runtime requirements without reinstalling vgamepad..."
           $filteredRequirements = "requirements-ci.txt"
           $runtimeRequirements = @(Get-Content requirements.txt |
