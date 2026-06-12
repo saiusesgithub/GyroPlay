@@ -77,7 +77,14 @@ jobs:
           fi
 
           echo "Using sdkmanager: $SDKMANAGER"
+          set +e
           yes | "$SDKMANAGER" --licenses > /dev/null
+          license_status=${PIPESTATUS[1]}
+          set -e
+          if [ "$license_status" -ne 0 ]; then
+            echo "Android SDK license acceptance failed with exit code $license_status."
+            exit "$license_status"
+          fi
           "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Build ARM64 release APK
