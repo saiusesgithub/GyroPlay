@@ -11,6 +11,8 @@ namespace GyroPlay.Desktop.Pages;
 
 public sealed partial class DiagnosticsPage : Page
 {
+    private const string TroubleshootingUrl = "https://github.com/saiusesgithub/GyroPlay/blob/main/docs/troubleshooting.md";
+
     public DiagnosticsPage()
     {
         InitializeComponent();
@@ -100,7 +102,7 @@ public sealed partial class DiagnosticsPage : Page
         var path = AppServices.Paths.TroubleshootingPath;
         var target = path is not null && File.Exists(path)
             ? path
-            : "https://github.com/GyroPlay/GyroPlay/blob/main/docs/troubleshooting.md";
+            : TroubleshootingUrl;
         TryOpen(target);
     }
 
@@ -162,8 +164,10 @@ public sealed partial class DiagnosticsPage : Page
 
     private static string GetVersion()
     {
-        return Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+        var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
             ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString()
             ?? "Unknown";
+
+        return version.Split('+')[0];
     }
 }

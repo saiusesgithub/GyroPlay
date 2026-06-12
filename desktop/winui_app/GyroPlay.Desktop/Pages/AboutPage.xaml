@@ -19,6 +19,7 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Click="GitHubButton_Click" Content="GitHub" />
                         <Button Click="TroubleshootingButton_Click" Content="Open troubleshooting" />
+                        <Button Click="LicenseButton_Click" Content="License" />
                     </StackPanel>
                     <TextBlock FontWeight="SemiBold" Text="License and acknowledgements" />
                     <TextBlock Foreground="{StaticResource MutedTextBrush}" TextWrapping="Wrap" Text="GyroPlay uses Flutter, WinUI 3, Python, vgamepad, ViGEmBus, and QRCoder. Add the final repository license before public redistribution." />

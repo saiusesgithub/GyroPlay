@@ -26,7 +26,7 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _loadVersion() async {
     final info = await PackageInfo.fromPlatform();
     if (!mounted) return;
-    setState(() => _version = '${info.version}+${info.buildNumber}');
+    setState(() => _version = info.version);
   }
 
   Future<void> _open(String url) async {
@@ -66,17 +66,17 @@ class _AboutPageState extends State<AboutPage> {
               ListTile(
                 leading: const Icon(Icons.code),
                 title: const Text('GitHub'),
-                onTap: () => _open('https://github.com/GyroPlay/GyroPlay'),
+                onTap: () => _open('https://github.com/saiusesgithub/GyroPlay'),
               ),
               ListTile(
                 leading: const Icon(Icons.article_outlined),
                 title: const Text('License'),
-                onTap: () => _open('https://github.com/GyroPlay/GyroPlay/blob/main/LICENSE'),
+                onTap: () => _open('https://github.com/saiusesgithub/GyroPlay/blob/main/LICENSE'),
               ),
               ListTile(
                 leading: const Icon(Icons.help_outline),
                 title: const Text('Troubleshooting'),
-                onTap: () => _open('https://github.com/GyroPlay/GyroPlay/blob/main/docs/troubleshooting.md'),
+                onTap: () => _open('https://github.com/saiusesgithub/GyroPlay/blob/main/docs/troubleshooting.md'),
               ),
             ],
           ),

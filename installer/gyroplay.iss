@@ -3,7 +3,9 @@
 #define AppVersion "0.1.0"
 #endif
 #define Publisher "GyroPlay"
-#define ProjectUrl "https://github.com/GyroPlay/GyroPlay"
+#define ProjectUrl "https://github.com/saiusesgithub/GyroPlay"
+#define IssuesUrl "https://github.com/saiusesgithub/GyroPlay/issues"
+#define ReleasesUrl "https://github.com/saiusesgithub/GyroPlay/releases"
 #define AppExeName "GyroPlay.Desktop.exe"
 #define EngineExeName "GyroPlay.Engine.exe"
 #define FirewallRuleName "GyroPlay UDP 5005"
@@ -18,8 +20,8 @@ AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 AppPublisher={#Publisher}
 AppPublisherURL={#ProjectUrl}
-AppSupportURL={#ProjectUrl}
-AppUpdatesURL={#ProjectUrl}
+AppSupportURL={#IssuesUrl}
+AppUpdatesURL={#ReleasesUrl}
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany={#Publisher}
 VersionInfoDescription=GyroPlay Setup
