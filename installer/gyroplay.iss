@@ -10,7 +10,6 @@
 #define DriverInstallerName "ViGEmBus_1.22.0_x64_x86_arm64.exe"
 #define BuildDir "build"
 #define AppGuid "{8B45D1E4-2CB7-4B6D-A3F9-4E2D40A7F7CF}"
-#define RequiredDiskMb 350
 
 [Setup]
 AppId={{8B45D1E4-2CB7-4B6D-A3F9-4E2D40A7F7CF}
@@ -490,9 +489,6 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  FreeMb: Cardinal;
-  TotalMb: Cardinal;
 begin
   Result := '';
   NeedsRestart := False;
@@ -504,18 +500,6 @@ begin
       Result := 'Setup cannot safely replace GyroPlay while it is running.';
       Exit;
     end;
-  end;
-
-  if not GetSpaceOnDisk(WizardDirValue, True, FreeMb, TotalMb) then
-  begin
-    Result := 'Setup could not check free disk space for the selected installation folder.';
-    Exit;
-  end;
-
-  if FreeMb < {#RequiredDiskMb} then
-  begin
-    Result := 'GyroPlay needs at least {#RequiredDiskMb} MB of free disk space. Choose another installation folder or free some space and retry.';
-    Exit;
   end;
 end;
 
