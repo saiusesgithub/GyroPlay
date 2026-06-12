@@ -20,16 +20,6 @@
   [![Release build](https://github.com/saiusesgithub/GyroPlay/actions/workflows/release.yml/badge.svg)](https://github.com/saiusesgithub/GyroPlay/actions/workflows/release.yml)
 </div>
 
-## Demo
-
-A short video/GIF demo will be added after launch. For now, the screenshots below show the pairing flow, controller screen, desktop dashboard, diagnostics, and installer.
-
-<!-- Future demo asset paths:
-- assets/demo/gyroplay-demo.gif
-- assets/demo/gyroplay-demo-video-thumbnail.png
-- assets/pc/gyroplay-assetto-corsa-gameplay.png
--->
-
 ## Main Features
 
 - **Gyroscope steering** - use your phone in landscape orientation like a steering wheel.
