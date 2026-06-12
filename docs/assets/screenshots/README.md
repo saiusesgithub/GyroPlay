@@ -1,18 +1,30 @@
-# Screenshot Checklist
+# Screenshot Asset Notes
 
-Screenshots are intentionally not invented. Add real release screenshots here when they are captured.
+Release screenshots now live in the root `assets/` directory:
 
-Recommended files:
+- `assets/mobile/` - Android app screenshots.
+- `assets/pc/` - Windows desktop and installer screenshots.
+- `assets/icons/` - source icon assets.
+
+This folder is kept as a documentation pointer so older README links do not become confusing.
+
+Current screenshot files:
 
 | File | Content |
 | --- | --- |
-| `mobile-home.png` | Android Home page showing connection status and profile. |
-| `mobile-pair-device.png` | Android Pair Device page with QR/manual pairing. |
-| `mobile-controller-landscape.png` | Landscape controller screen with pedals and buttons. |
-| `desktop-home.png` | WinUI Home page with engine and QR pairing. |
-| `desktop-diagnostics.png` | Setup & Diagnostics page showing healthy driver/firewall state. |
-| `installer.png` | GyroPlay installer welcome or completion screen. |
-| `assetto-corsa-gameplay.png` | Gameplay example using the virtual controller. |
+| `assets/mobile/gyroplay-mobile-home-connected.jpg` | Android Home page showing connected state. |
+| `assets/mobile/gyroplay-mobile-pair-device.jpg` | Android Pair Device page. |
+| `assets/mobile/gyroplay-mobile-controller.jpg` | Landscape controller screen. |
+| `assets/mobile/gyroplay-mobile-calibration.jpg` | Calibration prompt. |
+| `assets/mobile/gyroplay-mobile-profiles.jpg` | Controller Profiles page. |
+| `assets/mobile/gyroplay-mobile-settings-steering.jpg` | Steering settings page. |
+| `assets/mobile/gyroplay-mobile-settings-app.jpg` | App settings page. |
+| `assets/mobile/gyroplay-mobile-about.jpg` | About page. |
+| `assets/pc/gyroplay-desktop-home-connected.png` | WinUI Home page. |
+| `assets/pc/gyroplay-desktop-diagnostics.png` | Setup & Diagnostics page. |
+| `assets/pc/gyroplay-desktop-settings.png` | Desktop Settings page. |
+| `assets/pc/gyroplay-desktop-tray-notification.png` | Tray menu and notification. |
+| `assets/pc/gyroplay-installer.png` | Windows installer. |
 
 Capture notes:
 

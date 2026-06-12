@@ -4,7 +4,7 @@ param()
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$sourceIcon = Join-Path $repoRoot "gyroplay-icon.png"
+$sourceIcon = Join-Path $repoRoot "assets\icons\gyroplay-icon.png"
 $mobileRoot = Join-Path $repoRoot "mobile\flutter_app"
 $androidRes = Join-Path $mobileRoot "android\app\src\main\res"
 $mobileBranding = Join-Path $mobileRoot "assets\branding"

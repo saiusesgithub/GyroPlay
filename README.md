@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="gyroplay-icon.png" alt="GyroPlay icon" width="120" height="120" />
+  <img src="assets/icons/gyroplay-icon.png" alt="GyroPlay icon" width="120" height="120" />
 
   # GyroPlay
 
@@ -22,17 +22,13 @@
 
 ## Demo
 
-Demo media will be added after the first public release.
+A short video/GIF demo will be added after launch. For now, the screenshots below show the pairing flow, controller screen, desktop dashboard, diagnostics, and installer.
 
-<!-- TODO: Add docs/assets/demo.gif showing QR pairing and steering. -->
-<!-- TODO: Add docs/assets/demo-video-thumbnail.png linking to a short gameplay video. -->
-<!-- TODO: Add an Assetto Corsa gameplay demo once recorded. -->
-
-Planned demo assets:
-
-- `docs/assets/demo.gif` - QR pairing and steering flow.
-- `docs/assets/demo-video-thumbnail.png` - short video thumbnail.
-- `docs/assets/screenshots/assetto-corsa-gameplay.png` - gameplay example.
+<!-- Future demo asset paths:
+- assets/demo/gyroplay-demo.gif
+- assets/demo/gyroplay-demo-video-thumbnail.png
+- assets/pc/gyroplay-assetto-corsa-gameplay.png
+-->
 
 ## Main Features
 
@@ -52,17 +48,25 @@ Planned demo assets:
 
 ## Screenshots
 
-Screenshots are not committed yet. See [docs/assets/screenshots/README.md](docs/assets/screenshots/README.md) for the capture checklist.
+### Android App
 
-| Area | Planned screenshot |
+| Home | Pair Device | Controller |
+| --- | --- | --- |
+| <img src="assets/mobile/gyroplay-mobile-home-connected.jpg" alt="GyroPlay Android home screen connected to a PC" width="220" /> | <img src="assets/mobile/gyroplay-mobile-pair-device.jpg" alt="GyroPlay Android pair device screen" width="220" /> | <img src="assets/mobile/gyroplay-mobile-controller.jpg" alt="GyroPlay Android landscape controller screen" width="360" /> |
+
+| Profiles | Settings | Calibration |
+| --- | --- | --- |
+| <img src="assets/mobile/gyroplay-mobile-profiles.jpg" alt="GyroPlay Android controller profiles screen" width="220" /> | <img src="assets/mobile/gyroplay-mobile-settings-steering.jpg" alt="GyroPlay Android steering settings screen" width="220" /> | <img src="assets/mobile/gyroplay-mobile-calibration.jpg" alt="GyroPlay Android calibration prompt" width="360" /> |
+
+### Windows Desktop
+
+| Home | Diagnostics |
 | --- | --- |
-| Mobile Home | `docs/assets/screenshots/mobile-home.png` |
-| Mobile Pair Device | `docs/assets/screenshots/mobile-pair-device.png` |
-| Mobile Controller | `docs/assets/screenshots/mobile-controller-landscape.png` |
-| Desktop Home | `docs/assets/screenshots/desktop-home.png` |
-| Desktop Diagnostics | `docs/assets/screenshots/desktop-diagnostics.png` |
-| Installer | `docs/assets/screenshots/installer.png` |
-| Assetto Corsa gameplay | `docs/assets/screenshots/assetto-corsa-gameplay.png` |
+| <img src="assets/pc/gyroplay-desktop-home-connected.png" alt="GyroPlay Windows desktop home page" width="420" /> | <img src="assets/pc/gyroplay-desktop-diagnostics.png" alt="GyroPlay Windows setup and diagnostics page" width="420" /> |
+
+| Settings and Tray | Installer |
+| --- | --- |
+| <img src="assets/pc/gyroplay-desktop-tray-notification.png" alt="GyroPlay Windows tray menu and notification" width="420" /> | <img src="assets/pc/gyroplay-installer.png" alt="GyroPlay Windows installer" width="360" /> |
 
 ## How It Works
 

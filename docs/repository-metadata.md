@@ -28,4 +28,9 @@ https://github.com/saiusesgithub/GyroPlay/releases
 
 ## Social Preview
 
-Use the final GyroPlay icon or a branded preview image derived from it. Do not use screenshots that expose pairing tokens, local IP addresses, or local file paths.
+Use `assets/icons/gyroplay-icon.png` as the source icon, or a branded preview image derived from it. Do not use screenshots that expose pairing tokens, local IP addresses, or local file paths.
+
+Recommended screenshot sources for release posts:
+
+- Android: `assets/mobile/`
+- Windows desktop and installer: `assets/pc/`
