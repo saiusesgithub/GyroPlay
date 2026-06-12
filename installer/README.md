@@ -54,7 +54,7 @@ $hash = Get-FileHash -Algorithm SHA256 $setup.FullName
 
 The installer:
 
-- Installs GyroPlay under `C:\Program Files\GyroPlay`.
+- Installs GyroPlay under the standard Windows Program Files location.
 - Uses a stable AppId for upgrades, reinstalls, repairs, and uninstall.
 - Preserves `%LOCALAPPDATA%\GyroPlay` during install, upgrade, repair, and normal uninstall.
 - Offers optional removal of `%LOCALAPPDATA%\GyroPlay` during uninstall.
@@ -98,7 +98,7 @@ Validate these scenarios before publishing a Windows release:
 - Upgrade over an older GyroPlay version.
 - Reinstall the same GyroPlay version.
 - Attempt downgrade over a newer GyroPlay version and confirm the warning.
-- Repair after deleting `C:\Program Files\GyroPlay\engine\GyroPlay.Engine.exe`.
+- Repair after deleting the installed `engine\GyroPlay.Engine.exe`.
 - Repair after deleting the `GyroPlay UDP 5005` firewall rule.
 - Install with ViGEmBus already installed and running.
 - Install with ViGEmBus missing.

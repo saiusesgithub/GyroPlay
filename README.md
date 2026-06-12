@@ -1,149 +1,231 @@
-# GyroPlay
+<div align="center">
+  <img src="gyroplay-icon.png" alt="GyroPlay icon" width="120" height="120" />
 
-GyroPlay is an open-source mobile-to-PC game controller for racing games. The Android app turns phone tilt and touch controls into UDP controller packets, the Windows engine maps those packets to a virtual Xbox 360 controller, and the WinUI desktop app provides pairing, engine control, and installer-friendly setup.
+  # GyroPlay
 
-Version: `0.1.0`
+  **Turn your phone into a motion-powered PC game controller.**
 
-## Key Features
+  GyroPlay is an open-source Android-to-Windows virtual game controller. It lets you control PC games using phone gyroscope steering and touch controls for throttle, brake, gears, handbrake, and other racing actions.
 
-- Android controller app with landscape steering-wheel style tilt input.
-- Calibration, invert steering, smoothing, dead zone, max tilt, and sensitivity settings.
-- Touch throttle and brake pedals.
-- Press-and-release controls for gear up, gear down, and handbrake.
-- UDP pairing with QR codes, short-lived tokens, sessions, and heartbeats.
-- Python/vgamepad engine packaged as `GyroPlay.Engine.exe`.
-- WinUI 3 desktop control panel for QR pairing and engine start/stop.
-- Inno Setup installer for Windows with ViGEmBus and firewall setup.
+  [Download latest release](https://github.com/saiusesgithub/GyroPlay/releases) · [View setup guide](docs/setup.md) · [Report an issue](https://github.com/saiusesgithub/GyroPlay/issues)
 
-## Architecture
+  [![Latest release](https://img.shields.io/github/v/release/saiusesgithub/GyroPlay?label=release)](https://github.com/saiusesgithub/GyroPlay/releases)
+  [![License](https://img.shields.io/badge/license-pending-lightgrey)](#license)
+  [![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](#supported-platforms)
+  [![Windows](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](#supported-platforms)
+  [![Flutter](https://img.shields.io/badge/Flutter-Dart-02569B?logo=flutter&logoColor=white)](mobile/flutter_app)
+  [![WinUI 3](https://img.shields.io/badge/WinUI%203-C%23-512BD4)](desktop/winui_app/GyroPlay.Desktop)
+  [![Open source](https://img.shields.io/badge/open%20source-yes-brightgreen)](#license)
+  [![Android build](https://github.com/saiusesgithub/GyroPlay/actions/workflows/build-android-apk.yml/badge.svg)](https://github.com/saiusesgithub/GyroPlay/actions/workflows/build-android-apk.yml)
+  [![Release build](https://github.com/saiusesgithub/GyroPlay/actions/workflows/release.yml/badge.svg)](https://github.com/saiusesgithub/GyroPlay/actions/workflows/release.yml)
+</div>
 
-```mermaid
-flowchart LR
-    Android[Flutter Android app] -->|UDP 5005: hello, heartbeat, gamepad_update| Engine[Python engine / GyroPlay.Engine.exe]
-    Engine -->|vgamepad| ViGEm[ViGEmBus virtual Xbox 360 controller]
-    ViGEm --> Game[Windows racing game]
-    Desktop[WinUI 3 desktop app] -->|starts/stops| Engine
-    Desktop -->|QR payload and pairing token| Android
-    Installer[Inno Setup installer] --> Desktop
-    Installer --> Engine
-    Installer --> ViGEm
-```
+## Demo
+
+Demo media will be added after the first public release.
+
+<!-- TODO: Add docs/assets/demo.gif showing QR pairing and steering. -->
+<!-- TODO: Add docs/assets/demo-video-thumbnail.png linking to a short gameplay video. -->
+<!-- TODO: Add an Assetto Corsa gameplay demo once recorded. -->
+
+Planned demo assets:
+
+- `docs/assets/demo.gif` - QR pairing and steering flow.
+- `docs/assets/demo-video-thumbnail.png` - short video thumbnail.
+- `docs/assets/screenshots/assetto-corsa-gameplay.png` - gameplay example.
+
+## Main Features
+
+- **Gyroscope steering** - use your phone in landscape orientation like a steering wheel.
+- **Touch throttle and brake** - large touch pedals designed for glanceable gameplay.
+- **Gear controls and handbrake** - press-and-release controls for gear up, gear down, and handbrake.
+- **QR pairing** - scan a desktop-generated QR code to connect without typing IP addresses.
+- **Local-network communication** - UDP packets over your LAN or phone hotspot, with no account or cloud dependency.
+- **Controller calibration** - set the current phone position as neutral before driving.
+- **Sensitivity and dead-zone settings** - tune steering dead zone, max tilt angle, smoothing, sensitivity, and inversion.
+- **Saved controller profiles** - start with the built-in Assetto Corsa profile and keep settings locally.
+- **Windows desktop control panel** - manage pairing, engine status, local IP, logs, diagnostics, and setup state.
+- **Driver and firewall diagnostics** - detect ViGEmBus and the inbound UDP firewall rule.
+- **Repair setup support** - repair the driver and firewall rule from the desktop app or installer.
+- **Tray and auto-start integration** - keep the engine available without keeping the main window open.
+- **Open-source and ad-free** - no ads, accounts, telemetry service, or cloud backend.
 
 ## Screenshots
 
-Place release screenshots in `docs/screenshots/` when they are ready:
+Screenshots are not committed yet. See [docs/assets/screenshots/README.md](docs/assets/screenshots/README.md) for the capture checklist.
 
-- `docs/screenshots/mobile-controller.png` - Android controller screen.
-- `docs/screenshots/desktop-control-panel.png` - Windows desktop control panel.
-- `docs/screenshots/installer.png` - Windows installer flow.
+| Area | Planned screenshot |
+| --- | --- |
+| Mobile Home | `docs/assets/screenshots/mobile-home.png` |
+| Mobile Pair Device | `docs/assets/screenshots/mobile-pair-device.png` |
+| Mobile Controller | `docs/assets/screenshots/mobile-controller-landscape.png` |
+| Desktop Home | `docs/assets/screenshots/desktop-home.png` |
+| Desktop Diagnostics | `docs/assets/screenshots/desktop-diagnostics.png` |
+| Installer | `docs/assets/screenshots/installer.png` |
+| Assetto Corsa gameplay | `docs/assets/screenshots/assetto-corsa-gameplay.png` |
 
-## Android Setup
+## How It Works
 
-1. Install Flutter and Android Studio.
-2. Connect an Android device or start an emulator.
-3. From the repo root:
+The Android app pairs with the Windows desktop app, sends controller updates to the local UDP engine, and the engine maps those values to a virtual Xbox 360 controller.
+
+```mermaid
+flowchart LR
+    Android[Android app<br/>Flutter + Dart] -->|UDP 5005<br/>hello, heartbeat, gamepad_update| Engine[Python controller engine]
+    Desktop[WinUI 3 desktop app] -->|starts, stops, monitors| Engine
+    Desktop -->|QR pairing token| Android
+    Engine -->|vgamepad| ViGEm[vgamepad + ViGEmBus]
+    ViGEm --> Xbox[Virtual Xbox 360 controller]
+    Xbox --> Game[PC game]
+```
+
+## Installation
+
+### Android
+
+1. Open the [latest GitHub Release](https://github.com/saiusesgithub/GyroPlay/releases).
+2. Download the ARM64 Android APK.
+3. Allow installation from unknown sources if Android prompts you.
+4. Install GyroPlay.
+5. Keep the phone and PC on the same Wi-Fi network, or connect both through the phone hotspot.
+
+The current APK is ARM64-only.
+
+### Windows
+
+1. Open the [latest GitHub Release](https://github.com/saiusesgithub/GyroPlay/releases).
+2. Download `GyroPlaySetup.exe`.
+3. Run the installer and approve the administrator prompt.
+4. Allow setup to install or repair ViGEmBus and configure the UDP 5005 firewall rule.
+5. Launch GyroPlay Desktop.
+6. Click **Start Engine**.
+7. Scan the QR code from the Android app.
+
+End users do not need Python, Flutter, Visual Studio, or the .NET SDK.
+
+## Quick Start
+
+1. Install GyroPlay Desktop on Windows.
+2. Install the GyroPlay Android APK.
+3. Open GyroPlay Desktop.
+4. Click **Start Engine**.
+5. Open the Android app and scan the QR code.
+6. Tap **Open Controller**.
+7. Calibrate while holding the phone centered.
+8. Launch Assetto Corsa or another PC game.
+9. Map the virtual Xbox controller in the game if required.
+
+## Supported Platforms
+
+| Component | Supported |
+| --- | --- |
+| Android app | Android ARM64 |
+| Windows desktop app | Windows 10/11 x64 |
+| Virtual controller | ViGEmBus-backed Xbox 360 controller |
+
+Not supported yet:
+
+- iOS
+- Linux or macOS desktop
+- USB controller mode
+- Universal game compatibility without manual input mapping
+
+## Architecture
+
+The repository is split into focused components:
+
+- `mobile/flutter_app/` - Flutter Android app, QR pairing, sensor steering, touch controls, local settings.
+- `desktop/winui_app/GyroPlay.Desktop/` - WinUI 3 desktop control panel, pairing QR, engine process management, diagnostics, tray integration.
+- `engine/python/` - UDP server and virtual Xbox controller mapping through `vgamepad`.
+- `protocol/` - UDP packet formats and sample payloads.
+- `installer/` - Inno Setup installer and release packaging support.
+- `docs/` - setup, troubleshooting, architecture, and contributor documentation.
+
+For more detail, see [docs/architecture.md](docs/architecture.md).
+
+## Configuration
+
+GyroPlay stores controller settings locally on the phone.
+
+- **Dead zone** - ignores small movement around center to reduce drift.
+- **Max tilt angle** - sets how much phone rotation equals full steering.
+- **Sensitivity** - scales steering response after the dead zone.
+- **Smoothing** - reduces shake from small sensor noise.
+- **Invert steering** - flips left/right input if your phone orientation is reversed.
+- **Calibration** - sets the current phone angle as neutral.
+- **Profiles** - save steering preferences for different games; v0.1.0 includes an Assetto Corsa profile.
+
+## Troubleshooting
+
+Start with [docs/troubleshooting.md](docs/troubleshooting.md).
+
+Common checks:
+
+- Phone and PC must be on the same local network.
+- Windows Firewall must allow inbound UDP port `5005`.
+- ViGEmBus must be installed and available.
+- The virtual controller should appear in `joy.cpl`.
+- Refresh the QR code if the pairing token expired.
+
+## Known Limitations
+
+- GyroPlay depends on ViGEmBus, which is retired upstream.
+- Desktop support is Windows-only.
+- The current APK build is Android ARM64-only.
+- Local-network latency depends on Wi-Fi or hotspot quality.
+- Touch controls do not provide physical feedback.
+- Some games require manual controller remapping.
+- No USB mode yet.
+- No customizable controller layout yet.
+- UDP traffic is local-network oriented and not encrypted.
+- One active phone session is supported at a time.
+
+## Development Setup
+
+Prerequisites:
+
+- Flutter SDK and Android Studio for mobile development.
+- .NET SDK and Windows App SDK tooling for the WinUI desktop app.
+- Python virtual environment for the engine.
+- Inno Setup 6 for local Windows installer builds.
+
+Common commands:
 
 ```powershell
 cd mobile\flutter_app
 flutter pub get
-flutter run
-```
-
-For a release APK:
-
-```powershell
-cd mobile\flutter_app
+flutter analyze
 flutter build apk --release --target-platform android-arm64
 ```
 
-The APK is created at `mobile/flutter_app/build/app/outputs/flutter-apk/app-release.apk`.
-
-## Windows Setup
-
-For normal users, install `GyroPlaySetup.exe` from a release. The installer installs the WinUI desktop app, bundles `GyroPlay.Engine.exe`, installs ViGEmBus if needed, and adds the inbound UDP firewall rule for port `5005`.
-
-For development:
-
-1. Install Visual Studio with WinUI/Windows App SDK workloads.
-2. Install Python 3.11 or newer.
-3. Install Inno Setup 6 if building the installer.
-4. Create the engine virtual environment:
-
 ```powershell
-cd engine\python
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
+dotnet build desktop\winui_app\GyroPlay.Desktop\GyroPlay.Desktop.csproj -c Release -p:Platform=x64
 ```
-
-5. Build the engine executable:
 
 ```powershell
 cd engine\python
 .\build-engine.ps1
 ```
 
-6. Run or publish the WinUI desktop app from `desktop/winui_app/GyroPlay.Desktop`.
-
-## Usage
-
-1. Start the Windows desktop app.
-2. Click `Start Engine`.
-3. Open the Android app.
-4. Scan the QR code shown by the desktop app, or enter the PC IPv4 address manually.
-5. Wait for the mobile app to show `Connected`.
-6. Tap `Calibrate` while holding the phone in its neutral landscape steering position.
-7. Start the game and bind the virtual Xbox 360 controller in the game's input settings.
-
-## Build Installer
-
-The Windows installer build is driven by `installer/build-installer.ps1`.
-
 ```powershell
 .\installer\build-installer.ps1
 ```
 
-Expected output:
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow and testing expectations.
 
-- `installer/output/GyroPlaySetup.exe`
+## Contributing
 
-The installer build requires `installer/dependencies/ViGEmBus_1.22.0_x64_x86_arm64.exe`.
+Contributions are welcome. Please keep changes focused, document behavior changes, and include the checks you ran.
 
-## Development Layout
-
-- `mobile/flutter_app/` - Flutter Android controller.
-- `engine/python/` - UDP engine and virtual gamepad bridge.
-- `desktop/winui_app/GyroPlay.Desktop/` - WinUI 3 desktop control panel.
-- `protocol/` - UDP protocol documentation and sample packets.
-- `installer/` - Inno Setup installer and build script.
-- `docs/` - project documentation.
-
-## Release Builds
-
-The release workflow is `.github/workflows/release.yml`.
-
-- Manual runs build artifacts only.
-- Tags matching `v*` build artifacts and attach them to a GitHub Release.
-- The Android and Windows builds run as separate jobs.
-- SHA256 checksum files are generated for the APK and installer.
-
-## Known Limitations
-
-- Windows PC support only for the engine and desktop app.
-- Android is the only mobile target currently supported.
-- UDP traffic is local-network oriented and is not encrypted.
-- One active paired phone/session is supported at a time.
-- ViGEmBus is required for virtual Xbox controller support.
-- No desktop profiles, installer auto-update, QR discovery hardening, or cloud features yet.
-- Firewall and router isolation can prevent mobile-to-PC UDP traffic.
-
-## Troubleshooting and Contributing
-
-- Troubleshooting: `docs/troubleshooting.md`
-- Contributing: `CONTRIBUTING.md`
-- Protocol: `protocol/protocol.md`
+- [Contributing guide](CONTRIBUTING.md)
+- [Issues](https://github.com/saiusesgithub/GyroPlay/issues)
+- [Protocol docs](protocol/protocol.md)
 
 ## License
 
-A root `LICENSE` file is required before the first public release. Until that file is added, the project should be treated as not yet licensed for redistribution.
+GyroPlay is intended to be released as open source, but this repository currently does not include a root `LICENSE` file. Add the project license before relying on redistribution rights.
+
+Expected license location after it is added: `LICENSE`.
+
+## Acknowledgements
+
+GyroPlay uses Flutter, Dart, WinUI 3, C#, Python, `vgamepad`, ViGEmBus, QRCoder, Inno Setup, and GitHub Actions.
