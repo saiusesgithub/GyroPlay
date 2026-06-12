@@ -10,7 +10,7 @@
   [Download latest release](https://github.com/saiusesgithub/GyroPlay/releases) · [View setup guide](docs/setup.md) · [Report an issue](https://github.com/saiusesgithub/GyroPlay/issues)
 
   [![Latest release](https://img.shields.io/github/v/release/saiusesgithub/GyroPlay?label=release)](https://github.com/saiusesgithub/GyroPlay/releases)
-  [![License](https://img.shields.io/badge/license-pending-lightgrey)](#license)
+  [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
   [![Android](https://img.shields.io/badge/platform-Android-3DDC84?logo=android&logoColor=white)](#supported-platforms)
   [![Windows](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)](#supported-platforms)
   [![Flutter](https://img.shields.io/badge/Flutter-Dart-02569B?logo=flutter&logoColor=white)](mobile/flutter_app)
@@ -222,9 +222,7 @@ Contributions are welcome. Please keep changes focused, document behavior change
 
 ## License
 
-GyroPlay is intended to be released as open source, but this repository currently does not include a root `LICENSE` file. Add the project license before relying on redistribution rights.
-
-Expected license location after it is added: `LICENSE`.
+GyroPlay is licensed under the GNU General Public License v3.0. See [LICENSE](LICENSE) for the full license text.
 
 ## Acknowledgements
 
